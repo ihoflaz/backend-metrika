@@ -63,13 +63,31 @@ src/
 ├── main.tsx             → Entry point
 ├── types.ts             → Temel tip tanımları
 ├── components/
-│   ├── Header.tsx       → Üst navigasyon
-│   ├── Sidebar.tsx      → Yan menü
-│   └── ProjectEditModal.tsx
+│   ├── Header.tsx           → Üst navigasyon (arama, bildirimler, profil)
+│   ├── Sidebar.tsx          → Yan menü (navigasyon, çıkış)
+│   ├── KanbanBoard.tsx      → DnD Kanban bileşeni (@dnd-kit)
+│   ├── ProjectEditModal.tsx → Proje düzenleme modal
+│   ├── CreateTaskModal.tsx  → Görev oluşturma modal
+│   ├── AddEventModal.tsx    → Takvim etkinlik ekleme modal
+│   ├── AddMemberModal.tsx   → Ekip üyesi ekleme modal
+│   ├── DocumentUploadModal.tsx   → Doküman yükleme modal (AI analiz)
+│   ├── ShareAnalysisModal.tsx    → Analiz paylaşım modal
+│   └── CreateTaskFromDocModal.tsx → Doküman aksiyonundan görev oluşturma
+├── store/
+│   ├── index.ts             → Store export hub
+│   ├── userStore.ts         → Kullanıcı state yönetimi
+│   ├── projectStore.ts      → Proje state yönetimi
+│   ├── taskStore.ts         → Görev state yönetimi
+│   ├── notificationStore.ts → Bildirim state yönetimi
+│   ├── documentStore.ts     → Doküman ve AI analiz state yönetimi
+│   └── uiStore.ts           → UI state (sidebar toggle vb.)
+├── utils/
+│   └── colorUtils.ts        → Renk yardımcı fonksiyonları
 └── pages/
     ├── Dashboard.tsx
     ├── ProjectsPage.tsx
     ├── CreateProjectWizard.tsx
+    ├── MethodologySelection.tsx → Metodoloji seçim sayfası
     ├── ProjectDetail.tsx
     ├── TasksPage.tsx
     ├── TaskDetail.tsx
@@ -317,7 +335,11 @@ interface Document {
 **Tab 5 - Team (Ekip)**:
 - Üye kartları: avatar, isim, rol, email, status
 - Mesaj ve ara butonları
-- Yeni üye ekleme
+- Yeni üye ekleme (AddMemberModal)
+
+**Diğer Özellikler**:
+- **Action Menu**: Düzenle, Sil, Dışa Aktar, Arşivle
+- **Project Edit Modal**: Proje başlığı, açıklama, durum, metodoloji güncelleme
 
 #### Gerekli API:
 ```
@@ -439,94 +461,292 @@ GET /tasks/:id/ai-suggestions
 
 **Dosya**: `src/pages/DocumentAnalysis.tsx`
 
-#### Sol Kolon:
-- Doküman önizleme
-- Yükleme tarihi
-- Analiz durumu (Status badge)
-- İndir ve paylaş butonları
+**İlgili Bileşenler**:
+- `DocumentUploadModal.tsx` - Doküman yükleme (multi-file, drag & drop)
+- `ShareAnalysisModal.tsx` - Analiz paylaşımı (link, e-posta, ekip)
+- `CreateTaskFromDocModal.tsx` - Aksiyondan görev oluşturma
+- `documentStore.ts` - Doküman ve analiz state yönetimi
 
-#### Sağ Kolon:
-- **Yönetici Özeti**: AI tarafından üretilen özet metin
-- **Etiketler**: AI tarafından çıkarılan anahtar kelimeler
-- **Öne Çıkan Bulgular**: Pozitif bulgular listesi
-- **Tespit Edilen Riskler**: Kritik seviye göstergeli risk listesi (sayfa numarası ile)
-- **Önerilen Aksiyonlar**: Her biri için "Görev Oluştur" butonu
+#### Sayfa Yapısı:
+
+**Boş Durum** (Analiz yoksa):
+- "Henüz Analiz Yok" mesajı
+- "Doküman Yükle" butonu
+- Dashboard'a dön butonu
+
+**Header Aksiyonları**:
+- "Yeni Doküman Yükle" butonu (yeşil)
+- "Kaydet" butonu (loading state animasyonu)
+- "Analizi Paylaş" butonu
+
+#### Sol Kolon (Doküman Kartı):
+- Doküman önizleme (mock preview)
+- Dosya adı ve boyutu
+- Yükleme tarihi
+- Analiz durumu badge
+- Güvenilirlik yüzdesi (AI confidence)
+- AI Model bilgisi (gpt-4, mock-ai vb.)
+- Hover'da Download/Share butonları
+
+#### Sağ Kolon (Analiz Sonuçları):
+
+**Yönetici Özeti Kartı**:
+- AI tarafından üretilen özet metin
+- Etiket listesi (hashtag formatında)
+
+**Bulgular Grid (2 sütun)**:
+1. **Öne Çıkan Bulgular** (yeşil border):
+   - Pozitif bulgular listesi
+   - Sayfa numarası bilgisi
+
+2. **Tespit Edilen Riskler** (kırmızı border):
+   - Risk açıklaması
+   - Seviye badge (Kritik, Yüksek, Orta, Düşük)
+   - Sayfa numarası
+
+**Aksiyon Panosu** (Kanban-benzeri Görünüm):
+- Post-it tarzı tasarım
+- 2 sütunlu yapı:
+  1. **AI Önerileri**: Backend'den gelen aksiyonlar
+  2. **Kendi Aksiyonlarım**: Kullanıcının manuel eklediği aksiyonlar
+
+**AI Önerisi Kartı Yapısı**:
+```typescript
+interface SuggestedAction {
+  id: string;
+  text: string;
+  priority: 'low' | 'medium' | 'high';
+  addedAsTask: boolean;    // Görev olarak eklendi mi?
+  taskId?: string;         // Oluşturulan görev ID'si
+}
+```
+- Öncelik göstergesi (🔥 Yüksek, ⚡ Orta, ✨ Düşük)
+- "Görev Yap" butonu → CreateTaskFromDocModal açar
+- "Görevi Gör" butonu (eğer görev oluşturulduysa)
+- "Tümünü Görevlere Ekle" butonu
+
+**Kullanıcı Aksiyonu Ekleme Formu**:
+- Aksiyon metni input
+- Öncelik seçici (select)
+- Ekle butonu
+- Silme ve görev oluşturma aksiyonları
 
 #### Analiz Geçmişi Tablosu:
 ```typescript
-interface AnalysisHistory {
-  documentName: string;
-  date: string;
-  type: 'PDF' | 'DOCX' | 'XLSX';
-  status: 'Tamamlandı' | 'İşleniyor' | 'Başarısız';
+interface DocumentAnalysis {
+  id: string;
+  documentId: string;
+  document: Document;
+  status: 'pending' | 'analyzing' | 'completed' | 'failed';
+  summary: string;
+  findings: Finding[];
+  risks: Risk[];
+  suggestedActions: SuggestedAction[];
+  tags: string[];
+  analyzedAt: string;
+  savedAt?: string;
+  sharedWith?: string[];     // Paylaşılan kullanıcı ID'leri
+  shareLink?: string;        // Paylaşım linki
+  aiModel?: string;          // Kullanılan AI modeli
+  confidence?: number;       // AI güvenilirlik skoru (0-100)
 }
 ```
+- Tablo: Doküman Adı, Tarih, Tür, Durum, İşlem
+- Aktif analiz vurgulama
+- "Görüntüle" butonu
+
+#### Document Store Modeli:
+```typescript
+interface Document {
+  id: string;
+  name: string;
+  type: 'PDF' | 'DOCX' | 'XLSX' | 'PPTX' | 'TXT' | 'Other';
+  size: number;              // bytes
+  sizeFormatted: string;     // "2.4 MB"
+  url: string;               // Dosya URL'i
+  thumbnailUrl?: string;
+  uploaderId: string;
+  projectId?: string;
+  uploadDate: string;
+  lastModified: string;
+  tags: string[];
+  metadata?: Record<string, any>;
+}
+
+interface Risk {
+  id: string;
+  description: string;
+  level: 'low' | 'medium' | 'high' | 'critical';
+  page?: number;
+  section?: string;
+}
+
+interface Finding {
+  id: string;
+  text: string;
+  isPositive: boolean;
+  page?: number;
+}
+```
+
+#### Document Upload Modal:
+- Drag & drop alanı
+- Multi-file upload desteği
+- Upload progress bar
+- İşlem aşamaları: uploading → processing → analyzing → completed
+- Dosya tipi ikonları (PDF, DOCX, XLSX vb.)
+- Hata durumu gösterimi
+
+#### Share Analysis Modal:
+- Link oluştur ve kopyala
+- E-posta ile paylaş
+- Ekip üyelerini seç (checkbox listesi)
+- Paylaşım onay bildirimi
+
+#### Create Task From Doc Modal:
+- Seçili aksiyon metni (readonly)
+- Görev başlığı (aksiyon metninden önerilir)
+- Proje seçimi
+- Atanan kişi seçimi
+- Öncelik seçimi
+- Bitiş tarihi
+- Tahmini süre
+- "Tümünü Görev Olarak Oluştur" modu
 
 #### Gerekli API:
 ```
 GET /documents?projectId=&analysisStatus=
 GET /documents/:id
 GET /documents/:id/analysis
-POST /documents/upload
+POST /documents/upload (multipart/form-data)
 POST /documents/:id/analyze
-POST /tasks (aksiyon → görev dönüşümü)
+PATCH /documents/:id
+DELETE /documents/:id
+
+# Analiz İşlemleri
+GET /analyses?documentId=&status=
+GET /analyses/:id
+PATCH /analyses/:id/save
+POST /analyses/:id/share
+POST /analyses/:id/generate-link
+PATCH /analyses/:id/actions/:actionId/mark-as-task
+
+# Görev Dönüşümü
+POST /tasks (action → task dönüşümü)
+POST /tasks/bulk (toplu aksiyon → görev)
 ```
 
 ---
 
-### 2.8 Oyunlaştırma Profili
+### 2.8 Oyunlaştırma Profili (Gelişmiş Karakter Sistemi)
 
 **Dosya**: `src/pages/GamificationProfile.tsx`
 
-#### Profil Header:
-- Avatar + seviye badge
-- Kullanıcı adı ve ünvan
-- XP progress bar (currentXP → xpToNextLevel)
-- Kalan XP miktarı
-- Toplam XP
-- Sıralama
+> **Yeni Özellik**: Trello-benzeri interaktif karakter sistemi, animasyonlar ve detaylı başarım takibi.
 
-#### Rozetler Grid:
+#### Unvan (Title) Sistemi:
 ```typescript
-interface Badge {
-  name: string;
-  icon: string;  // lucide icon name
-  color: string; // yellow, blue, purple, green...
-}
-```
-- Kazanılan (8 adet örnek)
-- Toplam rozet sayısı
-
-#### Son Aktiviteler:
-```typescript
-interface GamificationActivity {
-  title: string;
-  xp: string;      // "+25 XP"
-  time: string;    // "2 saat önce"
-  icon: string;
-  color: string;
-}
+const TITLES = [
+  { minLevel: 1, maxLevel: 5, name: 'Çaylak', key: 'caylak',
+    icon: '🌱', emoji: '🐣',
+    color: 'text-green-400', gradient: 'from-green-500 to-emerald-400',
+    description: 'Yeni başlayan, öğrenmeye hevesli',
+    personality: 'Meraklı ve enerjik' },
+    
+  { minLevel: 6, maxLevel: 10, name: 'Geliştirici', key: 'gelistirici',
+    icon: '⚡', emoji: '🦊', ... },
+    
+  { minLevel: 11, maxLevel: 20, name: 'Uzman', key: 'uzman',
+    icon: '🔥', emoji: '🦁', ... },
+    
+  { minLevel: 21, maxLevel: 30, name: 'Usta', key: 'usta',
+    icon: '💎', emoji: '🐉', ... },
+    
+  { minLevel: 31, maxLevel: 999, name: 'Efsane', key: 'efsane',
+    icon: '👑', emoji: '🦅', ... },
+];
 ```
 
-#### Beceri Dağılımı:
+#### Başarım (Achievement) Sistemi:
 ```typescript
-interface Skill {
-  name: string;    // "Proje Yönetimi"
-  val: number;     // 0-100
+interface Achievement {
+  id: string;              // 'first_task', 'task_hunter', vb.
+  name: string;            // 'İlk Adım'
+  description: string;     // 'İlk görevini tamamla'
+  howTo: string;           // Kazanma yöntemi açıklaması
+  icon: LucideIcon;        // React bileşeni
+  xp: number;              // Kazanılacak XP (50-500)
+  color: string;           // 'green', 'blue', 'purple', vb.
+  requirement: number;     // Gerekli sayı
+  type: 'tasks' | 'streak' | 'level' | 'projects' | 'documents';
+  link: string;            // Yönlendirme linki
+  linkText: string;        // 'Görevlere Git'
 }
 ```
 
-#### Liderlik Snippet (Top 5):
-- Sıra, isim, XP miktarı
-- Mevcut kullanıcı vurgusu
+#### İnteraktif Karakter Bileşeni:
+- Büyük glow efektleri (gradient-based)
+- Dönen kesikli çember animasyonu
+- 3 adet dönen ✨ sparkle
+- Hover efektleri
+- Entrance ve Breathing animasyonları
+
+#### Sayfa Yapısı:
+
+**Header**:
+- "Başarılarım" başlığı
+- "Liderlik Tablosu" butonu
+
+**İstatistik Kartları (4 adet)**:
+1. **Seviye Kartı**: Unvan, Seviye, XP bar
+2. **Toplam XP Kartı**: Toplam XP, Sonraki seviye
+3. **Tamamlanan Görev Kartı**: CheckCircle ikonu, sayı
+4. **Streak Kartı**: Flame ikonu, Güncel/En Uzun streak
+
+**Ana İçerik Grid (3 sütun)**:
+
+**Sol 2 Sütun**:
+1. **Başarımlar Paneli**: 
+   - İlerleme çubuğu
+   - Başarım kartları (icon, name, progress bar)
+   - Badge kazanımı (yeşil tık)
+   
+2. **Karakter Vitrin Alanı**:
+   - Premium gradient arka plan
+   - Merkezi büyük karakter
+   - Unvan/Seviye bilgileri
+   - **Unvan Yolculuğu**: Karakter evrimi (past/current/future)
+
+**Sağ Sütun**:
+1. **Bu Hafta Takvimi**: 7 günlük streak görünümü, günlük bonus
+2. **İstatistikler Paneli**: Görev, Proje, Doküman linkleri ve sayıları
+3. **Sıralama Kartı**: Büyük sıra numarası, XP özeti
+
+#### User Model Gamification Alanları:
+```typescript
+interface User {
+  // ... diğer alanlar
+  level: number;
+  xp: number;
+  xpToNextLevel: number;
+  rank?: number;
+  currentStreak?: number;
+  longestStreak?: number;
+  lastActiveDate?: string;
+  unlockedAchievements?: string[];  // Achievement ID'leri
+}
+```
 
 #### Gerekli API:
 ```
 GET /gamification/profile
 GET /gamification/badges
+GET /gamification/achievements
+GET /gamification/achievements/:id
 GET /gamification/recent-activities
 GET /gamification/skills
-GET /gamification/leaderboard?limit=5
+GET /gamification/streak
+POST /gamification/achievements/:id/unlock
 ```
 
 ---
@@ -630,23 +850,61 @@ POST /notifications/:id/dismiss
 
 **Dosya**: `src/pages/CalendarPage.tsx`
 
+**İlgili Bileşenler**:
+- `AddEventModal.tsx` - Etkinlik ekleme modal
+
 #### Header:
-- Ay navigasyonu (önceki/sonraki)
-- Etkinlik Ekle butonu
+- "Bugün" butonu (hızlı navigasyon)
+- Ay navigasyonu (önceki/sonraki ay butonları)
+- Ay ve yıl gösterimi
+- "Etkinlik Ekle" butonu (AddEventModal açar)
 
 #### Takvim Grid:
-- 7 günlük header (Pazartesi - Pazar)
-- Aylık görünüm (35 hücre)
-- Mevcut gün vurgusu
-- Hover'da "+" butonu
+- 7 günlük header (Pazartesi - Pazar, mobilde kısaltılmış)
+- Aylık görünüm (35/42 hücre - dinamik)
+- Önceki/sonraki ay günleri soluk renkte
+- Bugün vurgusu (mavi yuvarlak + shadow)
+- Hover'da "+" butonu (ilgili güne etkinlik ekle)
+
+#### Etkinlik Görünümü:
+- Görevler (taskStore'dan çekiliyor)
+- Renk kodlaması (proje rengine göre)
+- Maksimum 3 etkinlik gösterimi
+- "+N daha" göstergesi
+
+#### AddEventModal Özellikleri:
+```typescript
+interface AddEventModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  selectedDate?: Date;    // Tıklanan gün
+}
+```
+- Görev başlığı
+- Bitiş tarihi (seçili gün ile ön dolduruluyor)
+- Proje seçimi
+- Atanan kişi seçimi
+- Öncelik seçimi
+- Tahmini süre
+- Açıklama
+- Etiketler
+- Form validasyonu
+
+#### Yaklaşan Görevler Özeti:
+- Alt panel (grid 4 sütun)
+- Aktif görevler (Done olmayan)
+- Bitiş tarihine göre sıralı
+- Kalan gün hesaplaması (renk kodlu: kırmızı/sarı/yeşil)
+- Proje adı
 
 #### Etkinlik Tipleri:
 ```typescript
 interface CalendarEvent {
-  day: number;
+  id: string;
   title: string;
-  type: 'meeting' | 'deadline' | 'task';
-  color: 'purple' | 'red' | 'blue' | 'yellow' | 'green';
+  type: 'meeting' | 'deadline' | 'task' | 'completed';
+  color: ProjectColor;    // proje rengine göre
+  projectName: string;
 }
 ```
 
@@ -657,6 +915,9 @@ POST /calendar/events
 GET /calendar/events/:id
 PATCH /calendar/events/:id
 DELETE /calendar/events/:id
+
+# Görev bazlı takvim verisi
+GET /tasks?dueDate_start=&dueDate_end=
 ```
 
 ---
@@ -664,6 +925,9 @@ DELETE /calendar/events/:id
 ### 2.12 Ekip Listesi
 
 **Dosya**: `src/pages/TeamPage.tsx`
+
+**İlgili Bileşenler**:
+- `AddMemberModal.tsx` - Üye ekleme modal
 
 #### Departman Filtreleri:
 - Tümü, Yönetim, Yazılım, Tasarım, Veri, Kalite, İK
@@ -939,11 +1203,23 @@ GET /search?q=
 export interface User {
   id: string;
   name: string;
-  avatar: string;
+  email: string;
+  avatar: number; // picsum id
   role: string;
+  department: string;
+  location: string;
+  status: 'online' | 'busy' | 'away' | 'offline';
   level: number;
   xp: number;
   xpToNextLevel: number;
+  rank?: number;
+  bio?: string;
+  joinDate: string;
+  // Gamification
+  currentStreak?: number;
+  longestStreak?: number;
+  lastActiveDate?: string;
+  unlockedAchievements?: string[];
 }
 
 export interface Project {
@@ -1075,11 +1351,20 @@ PATCH  /sprints/:id/complete
 #### Documents
 ```
 GET    /documents
-POST   /documents/upload
+POST   /documents/upload (multipart)
 GET    /documents/:id
 DELETE /documents/:id
+PATCH  /documents/:id
 POST   /documents/:id/analyze
 GET    /documents/:id/analysis
+
+# Analiz Aksiyonları & Paylaşım
+GET    /analyses
+GET    /analyses/:id
+PATCH  /analyses/:id/save
+POST   /analyses/:id/share
+POST   /analyses/:id/generate-link
+PATCH  /analyses/:id/actions/:actionId/mark-as-task
 ```
 
 #### KPIs
@@ -1100,10 +1385,13 @@ GET    /kpi/issues
 ```
 GET    /gamification/profile
 GET    /gamification/badges
+GET    /gamification/achievements
+GET    /gamification/achievements/:id
 GET    /gamification/leaderboard
-GET    /gamification/xp-history
+GET    /gamification/streak
 GET    /gamification/recent-activities
 GET    /gamification/skills
+POST   /gamification/achievements/:id/unlock
 ```
 
 #### Notifications
@@ -1276,6 +1564,10 @@ Mevcut `BACKEND_SPECIFICATION.md` dosyası oldukça kapsamlı hazırlanmış. An
 
 | Endpoint | Kullanım Yeri | Açıklama |
 |----------|---------------|----------|
+| `GET /gamification/achievements` | Gamification | Tüm başarımları listele |
+| `GET /gamification/streak` | Gamification | Streak bilgisini getir |
+| `POST /analyses/:id/share` | Doc Analysis | Analiz paylaşımı |
+| `POST /tasks/bulk` | Doc Analysis | Dokümandan toplu görev açma |
 | `GET /dashboard/active-projects` | Dashboard | Sadece aktif projeler (limit:4) |
 | `GET /dashboard/risk-alerts` | Dashboard | Kritik risk uyarıları |
 | `GET /tasks/:id/kpi-impact` | Task Detail | Görevin KPI'lara etkisi |

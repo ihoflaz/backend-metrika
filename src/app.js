@@ -14,6 +14,12 @@ import gamificationRoutes from './routes/gamificationRoutes.js';
 import dashboardRoutes from './routes/dashboardRoutes.js';
 import documentRoutes from './routes/documentRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
+import calendarRoutes from './routes/calendarRoutes.js';
+import teamRoutes from './routes/teamRoutes.js';
+import kpiRoutes from './routes/kpiRoutes.js';
+import settingsRoutes from './routes/settingsRoutes.js';
+import helpRoutes from './routes/helpRoutes.js';
+import analysisRoutes from './routes/analysisRoutes.js';
 import mockRoutes from './routes/mockRoutes.js';
 
 const app = express();
@@ -32,6 +38,7 @@ app.get('/', (req, res) => {
     res.send('Metrika API is running...');
 });
 
+// Core Routes
 app.use('/auth', authRoutes);
 app.use('/users', userRoutes);
 app.use('/projects', projectRoutes);
@@ -41,10 +48,16 @@ app.use('/dashboard', dashboardRoutes);
 app.use('/documents', documentRoutes);
 app.use('/notifications', notificationRoutes);
 
-// Use one router for all miscellaneous mocks to simplify
+// New Feature Routes
+app.use('/calendar/events', calendarRoutes);
+app.use('/team', teamRoutes);
+app.use('/kpi', kpiRoutes);
+app.use('/settings', settingsRoutes);
+app.use('/help', helpRoutes);
+app.use('/analyses', analysisRoutes);
+
+// Global Search fallback (for features with mock data)
 app.use('/', mockRoutes);
-
-
 
 // Error Handling
 app.use(notFound);

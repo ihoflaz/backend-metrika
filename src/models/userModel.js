@@ -63,6 +63,29 @@ const userSchema = mongoose.Schema(
             name: String,
             level: Number // 0-100
         }],
+        // Streak tracking
+        currentStreak: {
+            type: Number,
+            default: 0,
+        },
+        longestStreak: {
+            type: Number,
+            default: 0,
+        },
+        lastActiveDate: {
+            type: Date,
+        },
+        unlockedAchievements: [{
+            type: String, // Achievement key
+        }],
+        // Additional profile fields
+        phone: {
+            type: String,
+        },
+        joinDate: {
+            type: Date,
+            default: Date.now,
+        },
     },
     {
         timestamps: true,
