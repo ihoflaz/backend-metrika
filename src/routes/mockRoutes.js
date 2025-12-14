@@ -21,9 +21,9 @@ router.get('/calendar/events', protect, getCalendarEvents);
 router.get('/messages/unread-count', protect, getUnreadMessagesCount);
 
 // Add catch-all for other sub-routes to prevent 404s on frontend fetch
-// Express 5 requires named parameters for wildcards
-router.get('/help/:any*', (req, res) => res.json([]));
-router.get('/kpi/:any*', (req, res) => res.json({}));
-router.get('/calendar/:any*', (req, res) => res.json([]));
+// Express 5 requires named parameters with explicit regex for wildcards
+router.get('/help/:path(.*)', (req, res) => res.json([]));
+router.get('/kpi/:path(.*)', (req, res) => res.json({}));
+router.get('/calendar/:path(.*)', (req, res) => res.json([]));
 
 export default router;
