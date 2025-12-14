@@ -20,10 +20,7 @@ router.get('/kpi/dashboard', protect, getKpiDashboard);
 router.get('/calendar/events', protect, getCalendarEvents);
 router.get('/messages/unread-count', protect, getUnreadMessagesCount);
 
-// Add catch-all for other sub-routes to prevent 404s on frontend fetch
-// Express 5 requires named parameters with explicit regex for wildcards
-router.get('/help/:path(.*)', (req, res) => res.json([]));
-router.get('/kpi/:path(.*)', (req, res) => res.json({}));
-router.get('/calendar/:path(.*)', (req, res) => res.json([]));
+// Wildcard catch-all routes removed due to Express 5 path-to-regexp compatibility issues
+// Specific routes above should handle the main use cases
 
 export default router;
