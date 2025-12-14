@@ -6,11 +6,14 @@ import Notification from '../models/notificationModel.js';
 const getNotifications = async (req, res) => {
     const pageSize = Number(req.query.limit) || 20;
     const page = Number(req.query.page) || 1;
-    const isRead = req.query.isRead;
+    const { isRead, type } = req.query;
 
     const filter = { recipient: req.user._id };
     if (isRead !== undefined && isRead !== '') {
         filter.isRead = isRead === 'true';
+    }
+    if (type) {
+        filter.type = type;
     }
 
     const count = await Notification.countDocuments(filter);
@@ -60,4 +63,43 @@ const markAllAsRead = async (req, res) => {
     res.json({ message: 'All notifications marked as read' });
 };
 
-export { getNotifications, getUnreadCount, markAsRead, markAllAsRead };
+// @desc    Delete notification
+// @route   DELETE /notifications/:id
+// @access  Private
+const deleteNotification = async (req, res) => {
+    const notification = await Notification.findById(req.params.id);
+
+    if (notification && notification.recipient.toString() === req.user._id.toString()) {
+        await notification.deleteOne();
+        res.json({ message: 'Notification deleted' });
+    } else {
+        res.status(404);
+        throw new Error('Notification not found');
+    }
+};
+
+// @desc    Dismiss notification (mark as dismissed without deleting)
+// @route   POST /notifications/:id/dismiss
+// @access  Private
+const dismissNotification = async (req, res) => {
+    const notification = await Notification.findById(req.params.id);
+
+    if (notification && notification.recipient.toString() === req.user._id.toString()) {
+        notification.isRead = true;
+        notification.dismissedAt = new Date();
+        await notification.save();
+        res.json({ message: 'Notification dismissed' });
+    } else {
+        res.status(404);
+        throw new Error('Notification not found');
+    }
+};
+
+export {
+    getNotifications,
+    getUnreadCount,
+    markAsRead,
+    markAllAsRead,
+    deleteNotification,
+    dismissNotification
+};

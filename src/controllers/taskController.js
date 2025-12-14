@@ -1,6 +1,7 @@
 import Task from '../models/taskModel.js';
 import Activity from '../models/activityModel.js';
 import Project from '../models/projectModel.js';
+import User from '../models/userModel.js';
 
 // @desc    Get all tasks
 // @route   GET /tasks
@@ -23,9 +24,17 @@ const getTasks = async (req, res) => {
     if (req.query.priority && req.query.priority !== 'All') filter.priority = req.query.priority;
     if (req.query.projectId) filter.project = req.query.projectId;
 
+    // Date range filter for calendar
+    if (req.query.dueDate_start && req.query.dueDate_end) {
+        filter.dueDate = {
+            $gte: new Date(req.query.dueDate_start),
+            $lte: new Date(req.query.dueDate_end)
+        };
+    }
+
     const count = await Task.countDocuments(filter);
     const tasks = await Task.find(filter)
-        .sort({ order: 1, createdAt: -1 }) // Sort by order first
+        .sort({ order: 1, createdAt: -1 })
         .populate('assignee', 'name avatar')
         .populate('project', 'title color')
         .limit(pageSize)
@@ -82,8 +91,12 @@ const createTask = async (req, res) => {
         task: createdTask._id,
         action: 'created task',
         type: 'create',
-        content: `Created task ${createdTask.title}`
+        content: `Created task ${createdTask.title}`,
+        xpEarned: 10
     });
+
+    // Award XP
+    await User.findByIdAndUpdate(req.user._id, { $inc: { xp: 10 } });
 
     res.status(201).json(createdTask);
 };
@@ -95,14 +108,29 @@ const updateTask = async (req, res) => {
     const task = await Task.findById(req.params.id);
 
     if (task) {
-        task.title = req.body.title || task.title;
-        task.description = req.body.description || task.description;
-        task.status = req.body.status || task.status;
-        task.priority = req.body.priority || task.priority;
-        if (req.body.loggedHours) task.loggedHours = req.body.loggedHours;
+        const oldStatus = task.status;
+        Object.assign(task, req.body);
         if (req.body.assigneeId) task.assignee = req.body.assigneeId;
 
         const updatedTask = await task.save();
+
+        // If task completed, award XP
+        if (oldStatus !== 'Done' && updatedTask.status === 'Done') {
+            const xpAmount = updatedTask.priority === 'Urgent' ? 50 :
+                updatedTask.priority === 'High' ? 30 :
+                    updatedTask.priority === 'Medium' ? 20 : 10;
+            await User.findByIdAndUpdate(req.user._id, { $inc: { xp: xpAmount } });
+
+            await Activity.create({
+                user: req.user._id,
+                project: task.project,
+                task: task._id,
+                action: 'completed task',
+                type: 'complete',
+                content: `Completed task ${task.title}`,
+                xpEarned: xpAmount
+            });
+        }
 
         res.json(updatedTask);
     } else {
@@ -111,16 +139,209 @@ const updateTask = async (req, res) => {
     }
 };
 
+// @desc    Delete task
+// @route   DELETE /tasks/:id
+// @access  Private
+const deleteTask = async (req, res) => {
+    const task = await Task.findById(req.params.id);
+
+    if (task) {
+        await task.deleteOne();
+        res.json({ message: 'Task removed' });
+    } else {
+        res.status(404);
+        throw new Error('Task not found');
+    }
+};
+
+// @desc    Update task status
+// @route   PATCH /tasks/:id/status
+// @access  Private
+const updateTaskStatus = async (req, res) => {
+    const { status } = req.body;
+    const task = await Task.findById(req.params.id);
+
+    if (task) {
+        task.status = status;
+        const updatedTask = await task.save();
+        res.json(updatedTask);
+    } else {
+        res.status(404);
+        throw new Error('Task not found');
+    }
+};
+
+// @desc    Get task comments
+// @route   GET /tasks/:id/comments
+// @access  Private
+const getTaskComments = async (req, res) => {
+    const activities = await Activity.find({
+        task: req.params.id,
+        type: 'comment'
+    })
+        .populate('user', 'name avatar')
+        .sort({ createdAt: -1 });
+
+    res.json(activities);
+};
+
+// @desc    Add task comment
+// @route   POST /tasks/:id/comments
+// @access  Private
+const addTaskComment = async (req, res) => {
+    const { content } = req.body;
+    const task = await Task.findById(req.params.id);
+
+    if (!task) {
+        res.status(404);
+        throw new Error('Task not found');
+    }
+
+    const comment = await Activity.create({
+        user: req.user._id,
+        task: req.params.id,
+        project: task.project,
+        action: 'commented',
+        type: 'comment',
+        content,
+        xpEarned: 5
+    });
+
+    // Award XP for commenting
+    await User.findByIdAndUpdate(req.user._id, { $inc: { xp: 5 } });
+
+    await comment.populate('user', 'name avatar');
+
+    res.status(201).json(comment);
+};
+
+// @desc    Get task activity timeline
+// @route   GET /tasks/:id/activity
+// @access  Private
+const getTaskActivity = async (req, res) => {
+    const activities = await Activity.find({ task: req.params.id })
+        .populate('user', 'name avatar')
+        .sort({ createdAt: -1 });
+
+    res.json(activities);
+};
+
+// @desc    Get time logs for task
+// @route   GET /tasks/:id/time-logs
+// @access  Private
+const getTaskTimeLogs = async (req, res) => {
+    const activities = await Activity.find({
+        task: req.params.id,
+        type: 'time_log'
+    }).populate('user', 'name avatar').sort({ createdAt: -1 });
+
+    res.json(activities);
+};
+
+// @desc    Add time log
+// @route   POST /tasks/:id/time-logs
+// @access  Private
+const addTaskTimeLog = async (req, res) => {
+    const { hours, description } = req.body;
+    const task = await Task.findById(req.params.id);
+
+    if (!task) {
+        res.status(404);
+        throw new Error('Task not found');
+    }
+
+    task.loggedHours = (task.loggedHours || 0) + hours;
+    await task.save();
+
+    const log = await Activity.create({
+        user: req.user._id,
+        task: req.params.id,
+        project: task.project,
+        action: 'logged time',
+        type: 'time_log',
+        content: description || `Logged ${hours} hours`,
+    });
+
+    res.status(201).json({ log, newTotal: task.loggedHours });
+};
+
+// @desc    Get KPI impact
+// @route   GET /tasks/:id/kpi-impact
+// @access  Private
+const getTaskKpiImpact = async (req, res) => {
+    // Mock KPI impact data
+    res.json([
+        { name: 'Sprint Velocity', impact: '+2%' },
+        { name: 'On-Time Delivery', impact: '+1.5%' },
+        { name: 'Team Productivity', impact: '+0.5%' },
+    ]);
+};
+
+// @desc    Get AI suggestions for task
+// @route   GET /tasks/:id/ai-suggestions
+// @access  Private
+const getTaskAiSuggestions = async (req, res) => {
+    // Mock AI suggestions
+    res.json([
+        { id: '1', text: 'Raporunuza rakip kampanyalarla karşılaştırmalı analiz ekleyebilirsiniz.', priority: 'medium' },
+        { id: '2', text: 'Görsel materyaller eklemek etkileşimi artırabilir.', priority: 'low' },
+    ]);
+};
+
+// @desc    Add attachment to task
+// @route   POST /tasks/:id/attachments
+// @access  Private
+const addTaskAttachment = async (req, res) => {
+    const task = await Task.findById(req.params.id);
+
+    if (!task) {
+        res.status(404);
+        throw new Error('Task not found');
+    }
+
+    // Assuming file is uploaded via middleware
+    if (req.file) {
+        if (!task.attachments) task.attachments = [];
+        task.attachments.push({
+            name: req.file.originalname,
+            path: req.file.path,
+            type: req.file.mimetype,
+            size: req.file.size,
+            uploadedAt: new Date()
+        });
+        await task.save();
+    }
+
+    res.json(task);
+};
+
+// @desc    Create bulk tasks from analysis
+// @route   POST /tasks/bulk
+// @access  Private
+const createBulkTasks = async (req, res) => {
+    const { tasks: taskList, projectId, assigneeId } = req.body;
+
+    const createdTasks = [];
+    for (const taskData of taskList) {
+        const task = await Task.create({
+            title: taskData.title,
+            description: taskData.description || 'Doküman analizinden oluşturuldu',
+            status: 'Todo',
+            priority: taskData.priority || 'Medium',
+            project: projectId,
+            assignee: assigneeId || req.user._id,
+            dueDate: taskData.dueDate,
+        });
+        createdTasks.push(task);
+    }
+
+    res.status(201).json({ message: `${createdTasks.length} tasks created`, tasks: createdTasks });
+};
+
 // @desc    Reorder tasks (Drag & Drop)
 // @route   PATCH /projects/:id/tasks/reorder
 // @access  Private
 const reorderTasks = async (req, res) => {
-    const { taskId, newStatus, newOrder, affectedTaskIds } = req.body;
-    // Simplified logic: Client sends just the moved task and its new position, 
-    // or the entire list of IDs for a column. 
-    // Best practice for dnd-kit: Send the new array of IDs for the column.
-
-    // Implementation based on: "items" array in body which is Array<{id, order, status}>
     const { items } = req.body;
 
     if (!items || !Array.isArray(items)) {
@@ -149,9 +370,10 @@ const getTaskStats = async (req, res) => {
     const total = await Task.countDocuments();
     const todo = await Task.countDocuments({ status: 'Todo' });
     const inProgress = await Task.countDocuments({ status: 'In Progress' });
+    const review = await Task.countDocuments({ status: 'Review' });
     const done = await Task.countDocuments({ status: 'Done' });
 
-    res.json({ total, todo, inProgress, done });
+    res.json({ total, todo, inProgress, review, done });
 };
 
 export {
@@ -159,6 +381,17 @@ export {
     getTaskById,
     createTask,
     updateTask,
+    deleteTask,
+    updateTaskStatus,
+    getTaskComments,
+    addTaskComment,
+    getTaskActivity,
+    getTaskTimeLogs,
+    addTaskTimeLog,
+    getTaskKpiImpact,
+    getTaskAiSuggestions,
+    addTaskAttachment,
+    createBulkTasks,
     getTaskStats,
     reorderTasks
 };

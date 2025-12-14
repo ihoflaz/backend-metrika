@@ -20,6 +20,7 @@ import kpiRoutes from './routes/kpiRoutes.js';
 import settingsRoutes from './routes/settingsRoutes.js';
 import helpRoutes from './routes/helpRoutes.js';
 import analysisRoutes from './routes/analysisRoutes.js';
+import sprintRoutes from './routes/sprintRoutes.js';
 import mockRoutes from './routes/mockRoutes.js';
 
 const app = express();
@@ -55,8 +56,9 @@ app.use('/kpi', kpiRoutes);
 app.use('/settings', settingsRoutes);
 app.use('/help', helpRoutes);
 app.use('/analyses', analysisRoutes);
+app.use('/sprints', sprintRoutes);
 
-// Global Search fallback (for features with mock data)
+// Global Search and Mock fallbacks
 app.use('/', mockRoutes);
 
 // Error Handling

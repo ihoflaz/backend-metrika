@@ -21,7 +21,7 @@ const activitySchema = mongoose.Schema(
         },
         type: {
             type: String,
-            enum: ['create', 'comment', 'approval', 'update', 'gamification'],
+            enum: ['create', 'update', 'complete', 'comment', 'approval', 'gamification', 'time_log', 'achievement', 'praise'],
             default: 'update',
         },
         content: {
