@@ -281,10 +281,22 @@ const generateTasksAndActivities = async (projects, users, sprints) => {
     const activities = [];
     const notifications = [];
 
+    // Sample attachments for demo
+    const sampleAttachments = [
+        { name: 'requirements.pdf', url: 'https://example.com/requirements.pdf', mimeType: 'application/pdf', size: 245000 },
+        { name: 'design-mockup.png', url: 'https://example.com/design.png', mimeType: 'image/png', size: 156000 },
+        { name: 'api-spec.json', url: 'https://example.com/api.json', mimeType: 'application/json', size: 12000 },
+        { name: 'meeting-notes.docx', url: 'https://example.com/notes.docx', mimeType: 'application/vnd.openxmlformats', size: 35000 },
+        { name: 'test-report.xlsx', url: 'https://example.com/report.xlsx', mimeType: 'application/vnd.ms-excel', size: 89000 },
+    ];
+
     for (const project of projects) {
         const taskCount = randomInt(8, 20);
         const projectSprints = sprints.filter(s => s.project.toString() === project._id.toString());
         const activeSprint = projectSprints.find(s => s.status === 'Active');
+
+        // Get other projects for multi-linking (2-3 random projects)
+        const otherProjects = projects.filter(p => p._id.toString() !== project._id.toString());
 
         const columnOrders = {
             'Todo': 0,
@@ -298,19 +310,50 @@ const generateTasksAndActivities = async (projects, users, sprints) => {
             const status = sample(['Todo', 'In Progress', 'In Progress', 'Review', 'Done', 'Done']);
             const priority = sample(['Low', 'Medium', 'Medium', 'High', 'Urgent']);
 
+            // Multi-project linking: ~30% of tasks linked to additional projects
+            const additionalProjects = [];
+            if (Math.random() > 0.7 && otherProjects.length > 0) {
+                const linkedCount = randomInt(1, Math.min(2, otherProjects.length));
+                for (let j = 0; j < linkedCount; j++) {
+                    const linkedProject = sample(otherProjects);
+                    if (!additionalProjects.includes(linkedProject._id)) {
+                        additionalProjects.push(linkedProject._id);
+                    }
+                }
+            }
+
+            // Attachments: ~40% of tasks have attachments
+            const taskAttachments = [];
+            if (Math.random() > 0.6) {
+                const attachCount = randomInt(1, 3);
+                for (let j = 0; j < attachCount; j++) {
+                    const att = sample(sampleAttachments);
+                    taskAttachments.push({
+                        name: att.name,
+                        url: att.url,
+                        mimeType: att.mimeType,
+                        size: att.size,
+                        uploadedAt: new Date(Date.now() - randomInt(1, 30) * 24 * 60 * 60 * 1000)
+                    });
+                }
+            }
+
             const task = {
                 title: `${sample(taskVerbs)} ${sample(taskNouns)}`,
                 description: 'Detailed description for this specific task. Needs attention to detail and proper testing.',
                 status,
                 priority,
                 project: project._id,
+                projects: additionalProjects,
                 sprint: activeSprint ? activeSprint._id : undefined,
                 assignee: assignee._id,
                 dueDate: new Date(new Date().setDate(new Date().getDate() + randomInt(-5, 30))),
                 estimatedHours: randomInt(2, 40),
                 loggedHours: randomInt(0, 10),
                 tags: [sample(techStacks), sample(['Frontend', 'Backend', 'DevOps'])],
-                order: columnOrders[status]++
+                order: columnOrders[status]++,
+                attachments: taskAttachments,
+                documents: [] // Will be linked after documents are created
             };
 
             tasks.push(task);
@@ -318,6 +361,7 @@ const generateTasksAndActivities = async (projects, users, sprints) => {
     }
 
     const createdTasks = await Task.insertMany(tasks);
+
 
     for (const task of createdTasks) {
         activities.push({
@@ -686,6 +730,10 @@ const importData = async () => {
         console.log('📤 Uploading Demo Documents...');
         const documents = await uploadRealDocuments(projects, users);
 
+        // Link some documents to tasks
+        console.log('🔗 Linking Documents to Tasks...');
+        await linkDocumentsToTasks(documents);
+
         console.log('🤖 Generating AI Analyses...');
         await generateAnalyses(documents, users);
 
@@ -711,9 +759,35 @@ const importData = async () => {
 
         process.exit();
     } catch (error) {
-        console.error(`❌ Error: ${error}`);
+        console.error('❌ Error:', error.message);
+        console.error('Stack:', error.stack);
+        if (error.errors) console.error('Validation Errors:', JSON.stringify(error.errors, null, 2));
         process.exit(1);
     }
+};
+
+// Link documents to random tasks
+const linkDocumentsToTasks = async (documents) => {
+    if (!documents || documents.length === 0) return;
+
+    // Get all tasks
+    const tasks = await Task.find({}).limit(50);
+
+    for (const doc of documents) {
+        // Link each document to 2-4 random tasks
+        const linkCount = randomInt(2, 4);
+        const randomTasks = tasks.sort(() => Math.random() - 0.5).slice(0, linkCount);
+
+        for (const task of randomTasks) {
+            if (!task.documents.includes(doc._id)) {
+                await Task.findByIdAndUpdate(task._id, {
+                    $push: { documents: doc._id }
+                });
+            }
+        }
+    }
+
+    console.log(`  Linked ${documents.length} documents to tasks`);
 };
 
 // Generate KPI Goals

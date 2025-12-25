@@ -54,13 +54,14 @@
 /team/:id                → Ekip Üyesi Profili
 /kpi                     → KPI Dashboard
 /help                    → Yardım Merkezi
+/login                   → Giriş Sayfası (Yeni - API Entegrasyonu)
 ```
 
 ### 1.3 Uygulama Yapısı
 
 ```
 src/
-├── App.tsx              → Ana uygulama ve routing
+├── App.tsx              → Ana uygulama ve routing (Protected Routes)
 ├── main.tsx             → Entry point
 ├── types.ts             → Temel tip tanımları
 ├── components/
@@ -74,24 +75,32 @@ src/
 │   ├── DocumentUploadModal.tsx   → Doküman yükleme modal (AI analiz)
 │   ├── ShareAnalysisModal.tsx    → Analiz paylaşım modal
 │   ├── CreateTaskFromDocModal.tsx → Doküman aksiyonundan görev oluşturma
-│   ├── AddTaskToProjectModal.tsx  → Görevi projelere bağlama modal (Yeni)
-│   ├── AddDocumentToTaskModal.tsx → Dokümanı göreve bağlama modal (Yeni)
-│   ├── LinkedProjectsCard.tsx     → Göreven bağlı projeler kartı (Yeni)
-│   ├── LinkedTasksCard.tsx        → Dokümana bağlı görevler kartı (Yeni)
-│   ├── LinkedDocumentsModal.tsx   → Göreve bağlı dokümanlar modal (Yeni)
+│   ├── AddTaskToProjectModal.tsx  → Görevi projelere bağlama modal
+│   ├── AddDocumentToTaskModal.tsx → Dokümanı göreve bağlama modal
+│   ├── LinkedProjectsCard.tsx     → Göreve bağlı projeler kartı
+│   ├── LinkedTasksCard.tsx        → Dokümana bağlı görevler kartı
+│   ├── LinkedDocumentsModal.tsx   → Göreve bağlı dokümanlar modal
 │   ├── ToastContainer.tsx         → Bildirim toast sistemi
+│   ├── ActionCard.tsx             → Aksiyon kartı bileşeni
+│   ├── CustomDropdown.tsx         → Özel dropdown bileşeni
+│   ├── EmptyState.tsx             → Boş durum bileşeni
 │   └── UndoToast.tsx              → Geri al bildirimi
+├── services/                       → API Servisleri (Yeni - Backend Entegrasyonu)
+│   ├── api.ts               → Merkezi API istemcisi (JWT, _id mapping)
+│   └── documentApi.ts       → Doküman API servisi
 ├── store/
 │   ├── index.ts             → Store export hub
-│   ├── userStore.ts         → Kullanıcı state yönetimi
-│   ├── projectStore.ts      → Proje state yönetimi
-│   ├── taskStore.ts         → Görev state yönetimi
-│   ├── notificationStore.ts → Bildirim state yönetimi
+│   ├── authStore.ts         → Kimlik doğrulama state (Yeni - API)
+│   ├── userStore.ts         → Kullanıcı state yönetimi (API entegre)
+│   ├── projectStore.ts      → Proje state yönetimi (API entegre)
+│   ├── taskStore.ts         → Görev state yönetimi (API entegre)
+│   ├── notificationStore.ts → Bildirim state yönetimi (API entegre)
 │   ├── documentStore.ts     → Doküman ve AI analiz state yönetimi
 │   └── uiStore.ts           → UI state (sidebar toggle vb.)
 ├── utils/
 │   └── colorUtils.ts        → Renk yardımcı fonksiyonları
 └── pages/
+    ├── LoginPage.tsx        → Giriş sayfası (Yeni - API Entegrasyonu)
     ├── Dashboard.tsx
     ├── ProjectsPage.tsx
     ├── CreateProjectWizard.tsx
@@ -108,13 +117,54 @@ src/
     ├── TeamPage.tsx
     ├── TeamMemberProfile.tsx
     ├── KPIPage.tsx
-    ├── DocumentsPage.tsx    → Doküman listesi sayfası (Yeni)
+    ├── DocumentsPage.tsx    → Doküman listesi sayfası
     └── HelpPage.tsx
 ```
 
 ---
 
 ## 2. Sayfa Bazlı Analiz
+
+### 2.0 Giriş Sayfası (LoginPage) - YENİ
+
+**Dosya**: `src/pages/LoginPage.tsx`
+
+> **Backend Entegrasyonu**: Bu sayfa gerçek backend API'si ile çalışır.
+
+#### Özellikler:
+- Email ve şifre ile giriş formu
+- Form validasyonu (required fields)
+- Loading state (spinner)
+- Hata mesajları gösterimi
+- "Beni Hatırla" checkbox
+- Test credentials bilgisi (development mod)
+
+#### Veri Akışı:
+```typescript
+interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+interface LoginResponse {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  level: number;
+  xp: number;
+  token: string;  // JWT Token
+}
+```
+
+#### Gerekli API:
+```
+POST /auth/login { email, password }
+POST /auth/register { name, email, password }
+GET  /users/me (token validation)
+```
+
+---
 
 ### 2.1 Dashboard (Ana Sayfa)
 
@@ -1884,15 +1934,191 @@ Tüm API response'ları aşağıdaki formatta olmalı:
 
 ---
 
+## 10. API Servis Katmanı (Yeni)
+
+> **Backend Entegrasyonu**: Bu bölüm gerçek backend ile entegrasyon için oluşturulan servis katmanını açıklar.
+
+### 10.1 API İstemcisi (api.ts)
+
+**Dosya**: `src/services/api.ts`
+
+#### Temel Özellikler:
+- Singleton API client pattern
+- JWT Bearer token yönetimi (localStorage'da saklanır)
+- `_id` → `id` field mapping (MongoDB uyumu)
+- `isRead` → `read` field mapping (Notification uyumu)
+- Otomatik hata yakalama ve formatla
+
+```typescript
+// API Client yapısı
+class ApiClient {
+  // Base URL: https://backend-metrika.vercel.app
+  
+  get<T>(endpoint: string): Promise<T>
+  post<T>(endpoint: string, body?: unknown): Promise<T>
+  patch<T>(endpoint: string, body?: unknown): Promise<T>
+  delete<T>(endpoint: string): Promise<T>
+  upload<T>(endpoint: string, formData: FormData): Promise<T>
+}
+
+// Token Yönetimi
+const TOKEN_KEY = 'metrika-auth-token';
+getToken(): string | null
+setToken(token: string): void
+removeToken(): void
+```
+
+### 10.2 Kimlik Doğrulama Store'u (authStore.ts)
+
+**Dosya**: `src/store/authStore.ts`
+
+#### State Yapısı:
+```typescript
+interface AuthState {
+  token: string | null;
+  user: User | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  error: string | null;
+
+  // Actions
+  login: (email: string, password: string) => Promise<void>;
+  register: (name: string, email: string, password: string) => Promise<void>;
+  logout: () => void;
+  checkAuth: () => Promise<void>;
+  clearError: () => void;
+}
+```
+
+#### Zustand Persist:
+- Token `localStorage`'da saklanır
+- User bilgisi `checkAuth()` ile API'den çekilir
+- Session yönetimi için `zustand/middleware/persist` kullanılır
+
+---
+
+## 11. API Entegrasyon Durumu
+
+> **Not**: Aşağıdaki tablo, frontend'de hangi API'lerin gerçek backend ile çalıştığını ve hangilerinin henüz mock veri kullandığını gösterir.
+
+### 11.1 Entegre API'ler ✅
+
+| Modül | Endpoint | Durum | Açıklama |
+|-------|----------|-------|----------|
+| **Auth** | `POST /auth/login` | ✅ Çalışıyor | Email/şifre ile giriş |
+| **Auth** | `POST /auth/register` | ✅ Çalışıyor | Yeni kullanıcı kaydı |
+| **Auth** | `GET /users/me` | ✅ Çalışıyor | Token doğrulama |
+| **Users** | `GET /users` | ✅ Çalışıyor | Kullanıcı listesi |
+| **Projects** | `GET /projects` | ✅ Çalışıyor | Proje listesi |
+| **Projects** | `GET /projects/:id` | ✅ Çalışıyor | Proje detay |
+| **Projects** | `POST /projects` | ✅ Çalışıyor | Proje oluşturma |
+| **Projects** | `PATCH /projects/:id` | ✅ Çalışıyor | Proje güncelleme |
+| **Projects** | `DELETE /projects/:id` | ✅ Çalışıyor | Proje silme |
+| **Tasks** | `GET /tasks` | ✅ Çalışıyor | Görev listesi |
+| **Tasks** | `GET /tasks/:id` | ✅ Çalışıyor | Görev detay |
+| **Tasks** | `POST /tasks` | ✅ Çalışıyor | Görev oluşturma |
+| **Tasks** | `PATCH /tasks/:id` | ✅ Çalışıyor | Görev güncelleme |
+| **Tasks** | `DELETE /tasks/:id` | ✅ Çalışıyor | Görev silme |
+| **Notifications** | `GET /notifications` | ✅ Çalışıyor | Bildirim listesi |
+| **Notifications** | `PATCH /notifications/:id` | ✅ Çalışıyor | Okundu işaretleme |
+
+### 11.2 Mock Veri Kullanan Modüller ⏳
+
+| Modül | Dosya | Durum | Açıklama |
+|-------|-------|-------|----------|
+| **Dashboard** | `Dashboard.tsx` | ⏳ Mock | İstatistikler mock veri |
+| **Gamification** | `GamificationProfile.tsx` | ⏳ Mock | XP, Badge, Streak sistemi |
+| **Leaderboard** | `Leaderboard.tsx` | ⏳ Mock | Liderlik tablosu |
+| **Calendar** | `CalendarPage.tsx` | ⏳ Kısmi | Tasks API'den çekiyor, events mock |
+| **KPI** | `KPIPage.tsx` | ⏳ Mock | KPI verileri ve grafikler |
+| **Documents** | `DocumentsPage.tsx` | ⏳ Mock | Doküman listesi |
+| **AI Analysis** | `DocumentAnalysis.tsx` | ⏳ Mock | AI analiz sonuçları |
+| **Team** | `TeamPage.tsx` | ⏳ Mock | Ekip üyeleri listesi |
+| **Settings** | `Settings.tsx` | ⏳ Mock | Profil ve bildirim ayarları |
+| **Help** | `HelpPage.tsx` | ⏳ Mock | Yardım içerikleri |
+
+---
+
+## 12. Yapılacaklar (Planned Features)
+
+> **Not**: Aşağıdaki liste, frontend'de henüz yapılmamış veya eksik olan özellikleri içerir.
+
+### 12.1 Yüksek Öncelik (High Priority) 🔴
+
+| Özellik | Dosya/Bileşen | Açıklama |
+|---------|---------------|----------|
+| Dashboard API Entegrasyonu | `Dashboard.tsx` | Mock veriler gerçek API'ye bağlanacak |
+| Proje Timeline (Gantt) | `ProjectDetail.tsx` | Gerçek sprint ve faz verisi ile entegrasyon |
+| Görev Yorum Sistemi | `TaskDetail.tsx` | Comments API entegrasyonu |
+| Görev Aktivite Geçmişi | `TaskDetail.tsx` | Activity timeline API |
+| Doküman Yükleme | `DocumentUploadModal.tsx` | Gerçek dosya upload API |
+
+### 12.2 Orta Öncelik (Medium Priority) 🟡
+
+| Özellik | Dosya/Bileşen | Açıklama |
+|---------|---------------|----------|
+| Gamification API | `GamificationProfile.tsx` | XP, Badge, Achievement endpoints |
+| Leaderboard API | `Leaderboard.tsx` | `/gamification/leaderboard` entegrasyonu |
+| Sprint Yönetimi | `ProjectDetail.tsx` | Sprint CRUD işlemleri |
+| KPI Dashboard API | `KPIPage.tsx` | Gerçek KPI metrikleri |
+| Ekip Yönetimi API | `TeamPage.tsx` | `/users` ve `/team` endpoints |
+| Takvim Etkinlik API | `CalendarPage.tsx` | `/calendar/events` entegrasyonu |
+| AI Doküman Analizi | `DocumentAnalysis.tsx` | AI backend entegrasyonu |
+
+### 12.3 Düşük Öncelik (Low Priority) 🟢
+
+| Özellik | Dosya/Bileşen | Açıklama |
+|---------|---------------|----------|
+| Global Arama | `Header.tsx` | `/search` endpoint entegrasyonu |
+| Profil Ayarları API | `Settings.tsx` | Avatar upload, profil güncelleme |
+| Şifre Değiştirme | `Settings.tsx` | `/users/me/password` endpoint |
+| Yardım Merkezi API | `HelpPage.tsx` | FAQ ve help article endpoints |
+| WebSocket Entegrasyonu | Global | Real-time bildirimler |
+| Mesaj Sistemi | `Header.tsx` | Chat/mesajlaşma özelliği |
+
+### 12.4 Gelecek Özellikler (Future Features) 📋
+
+| Özellik | Açıklama | Durum |
+|---------|----------|-------|
+| Proje Arşivleme | Tamamlanan projeleri arşivleme | Planlandı |
+| Görev Şablonları | Tekrarlanan görevler için şablonlar | Planlandı |
+| Çoklu Dil Desteği | i18n entegrasyonu | Planlandı |
+| Dark/Light Mode Toggle | Tema değiştirme | Planlandı |
+| Mobil Responsive | Tam mobil uyumluluk | Kısmen Mevcut |
+| PDF Rapor Export | Proje ve KPI raporları PDF olarak | Planlandı |
+| Slack/Teams Entegrasyonu | Bildirim entegrasyonları | Planlandı |
+| 2FA (İki Faktörlü Doğrulama) | Güvenlik artırımı | Planlandı |
+
+---
+
+## 13. Frontend Konfigürasyonu
+
+### 13.1 Environment Variables
+
+```bash
+# .env
+VITE_API_URL=https://backend-metrika.vercel.app
+```
+
+### 13.2 Test Credentials
+
+```
+Email: admin@metrika.com
+Password: 123456
+```
+
+---
+
 > **Son Güncelleme**: Bu doküman, frontend kaynak kodunun tamamının analiz edilmesiyle oluşturulmuştur. Backend geliştiricilerin tüm gereksinimleri karşılayabilmesi için detaylı bilgi içermektedir.
 
 ---
 
 **Hazırlayan**: Antigravity AI Assistant  
 **Tarih**: 25 Aralık 2024  
-**Versiyon**: 1.2
+**Versiyon**: 1.3
 
 ### Değişiklik Geçmişi
+- **v1.3 (25 Aralık 2024)**: API Service Layer, Login Page, API Entegrasyon Durumu, Yapılacaklar bölümleri eklendi
 - **v1.2 (25 Aralık 2024)**: Task-Project multi-linking, Task-Document linking, DocumentsPage, KPI custom goals eklendi
 - **v1.1 (14 Aralık 2024)**: Gamification karakter sistemi, 5 yeni modal bileşeni eklendi
 - **v1.0 (14 Aralık 2024)**: İlk sürüm

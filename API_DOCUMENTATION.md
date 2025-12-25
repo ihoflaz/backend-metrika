@@ -37,6 +37,7 @@ Password: 123456
 14. [Settings](#14-settings)
 15. [Help](#15-help)
 16. [Search](#16-search)
+17. [Database Models](#17-database-models)
 
 ---
 
@@ -94,604 +95,473 @@ Kullanıcı girişi.
 
 ## 2. Users
 
-### GET /users/me
-Oturumdaki kullanıcının profilini getirir.
-
-### PATCH /users/me
-Kullanıcı profilini güncelle.
-
-### GET /users/:id
-Belirli kullanıcının profilini getirir.
-
-### GET /users/:id/stats
-Kullanıcı istatistiklerini getirir.
-
-### GET /users/:id/tasks
-Kullanıcının görevlerini getirir.
-
-### GET /users/:id/projects
-Kullanıcının projelerini getirir.
-
-### GET /users/:id/badges
-Kullanıcının rozetlerini getirir.
-
-### GET /users/:id/skills
-Kullanıcının becerilerini getirir.
-
-### GET /users/:id/activity
-Kullanıcının son aktivitelerini getirir.
-
-### POST /users/:id/praise
-Bir kullanıcıyı takdir et.
-
-### POST /users/:id/assign-task
-Kullanıcıya hızlı görev ata.
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/users/me` | GET | Oturumdaki kullanıcının profili |
+| `/users/me` | PATCH | Profil güncelle |
+| `/users/:id` | GET | Kullanıcı profili |
+| `/users/:id/stats` | GET | Kullanıcı istatistikleri |
+| `/users/:id/tasks` | GET | Kullanıcının görevleri |
+| `/users/:id/projects` | GET | Kullanıcının projeleri |
+| `/users/:id/badges` | GET | Kullanıcının rozetleri |
+| `/users/:id/skills` | GET | Kullanıcının becerileri |
+| `/users/:id/activity` | GET | Kullanıcının aktiviteleri |
+| `/users/:id/praise` | POST | Kullanıcıyı takdir et |
+| `/users/:id/assign-task` | POST | Kullanıcıya görev ata |
 
 ---
 
 ## 3. Projects
 
-### GET /projects
-Projeleri listele.
-
-**Query Parameters:**
-- `search` - Proje adında arama
-- `status` - `Active`, `Completed`, `On Hold`, `At Risk`
-- `methodology` - `Scrum`, `Waterfall`, `Hybrid`
-- `page`, `limit` - Sayfalama
-
-### POST /projects
-Yeni proje oluştur.
-
-### GET /projects/:id
-Proje detaylarını getir.
-
-### PATCH /projects/:id
-Projeyi güncelle.
-
-### DELETE /projects/:id
-Projeyi sil.
-
-### GET /projects/stats
-Proje istatistiklerini getir.
-
-### GET /projects/:id/timeline
-Proje zaman çizelgesini getir.
-
-### GET /projects/:id/burndown
-Sprint burndown chart verisi.
-
-### GET /projects/:id/tasks
-Projenin görevlerini getir.
-
-### GET /projects/:id/members
-Proje ekip üyelerini getir.
-
-### POST /projects/:id/members
-Projeye üye ekle.
-
-### PATCH /projects/:id/members/:userId
-Üye rolünü güncelle.
-
-### DELETE /projects/:id/members/:userId
-Üyeyi projeden çıkar.
-
-### GET /projects/:id/documents
-Proje dokümanlarını getir.
-
-### GET /projects/:id/kpis
-Proje KPI'larını getir.
-
-### POST /projects/:id/kpis
-Projeye KPI ekle.
-
-### GET /projects/:id/sprints
-Proje sprintlerini getir.
-
-### POST /projects/:id/sprints
-Yeni sprint oluştur.
-
-### GET /projects/:id/current-sprint
-Aktif sprinti getir.
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/projects` | GET | Proje listesi |
+| `/projects` | POST | Yeni proje oluştur |
+| `/projects/stats` | GET | Proje istatistikleri |
+| `/projects/:id` | GET | Proje detay |
+| `/projects/:id` | PATCH | Proje güncelle |
+| `/projects/:id` | DELETE | Proje sil |
+| `/projects/:id/timeline` | GET | Zaman çizelgesi |
+| `/projects/:id/burndown` | GET | Burndown chart |
+| `/projects/:id/tasks` | GET | Proje görevleri |
+| `/projects/:id/members` | GET | Ekip üyeleri |
+| `/projects/:id/members` | POST | Üye ekle |
+| `/projects/:id/members/:userId` | DELETE | Üye çıkar |
+| `/projects/:id/documents` | GET | Proje dokümanları |
+| `/projects/:id/kpis` | GET | Proje KPI'ları |
+| `/projects/:id/sprints` | GET | Proje spritleri |
+| `/projects/:id/current-sprint` | GET | Aktif sprint |
 
 ---
 
 ## 4. Tasks
 
-### GET /tasks
-Görevleri listele.
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/tasks` | GET | Görev listesi |
+| `/tasks` | POST | Yeni görev |
+| `/tasks/bulk` | POST | Toplu görev oluştur |
+| `/tasks/stats/by-status` | GET | Durum istatistikleri |
+| `/tasks/:id` | GET | Görev detay |
+| `/tasks/:id` | PATCH | Görev güncelle |
+| `/tasks/:id` | DELETE | Görev sil |
+| `/tasks/:id/status` | PATCH | Durum güncelle |
+| `/tasks/:id/comments` | GET | Yorumlar |
+| `/tasks/:id/comments` | POST | Yorum ekle |
+| `/tasks/:id/activity` | GET | Aktivite geçmişi |
+| `/tasks/:id/time-logs` | GET | Zaman kayıtları |
+| `/tasks/:id/time-logs` | POST | Zaman kaydı ekle |
+| `/tasks/:id/attachments` | POST | Ek yükle |
 
-**Query Parameters:**
-- `search` - Görev başlığında arama
-- `status` - `Todo`, `In Progress`, `Review`, `Done`, `Blocked`
-- `priority` - `Low`, `Medium`, `High`, `Urgent`
-- `projectId` - Projeye göre filtrele
-- `dueDate_start`, `dueDate_end` - Tarih aralığı
+### Multi-Linking (Çoklu Bağlantı)
 
-### POST /tasks
-Yeni görev oluştur.
-
-### GET /tasks/:id
-Görev detaylarını getir.
-
-### PATCH /tasks/:id
-Görevi güncelle.
-
-### DELETE /tasks/:id
-Görevi sil.
-
-### PATCH /tasks/:id/status
-Görev durumunu güncelle.
-
-### GET /tasks/:id/comments
-Görev yorumlarını getir.
-
-### POST /tasks/:id/comments
-Yorum ekle.
-
-### GET /tasks/:id/activity
-Görev aktivite geçmişini getir.
-
-### GET /tasks/:id/time-logs
-Görev zaman kayıtlarını getir.
-
-### POST /tasks/:id/time-logs
-Zaman kaydı ekle.
-
-### GET /tasks/:id/kpi-impact
-Görevin KPI etkisini getir.
-
-### GET /tasks/:id/ai-suggestions
-Görev için AI önerilerini getir.
-
-### POST /tasks/:id/attachments
-Görev ekini yükle.
-
-### POST /tasks/bulk
-Toplu görev oluştur.
-
-### GET /tasks/stats/by-status
-Durum bazlı görev istatistikleri.
-
----
-
-### Multi-Project & Document Linking (Yeni)
-
-### GET /tasks/:id/projects
-Göreve bağlı tüm projeleri getir.
-
-**Response:**
-```json
-[
-  { "_id": "...", "title": "Proje A", "color": "blue", "progress": 75 },
-  { "_id": "...", "title": "Proje B", "color": "green", "progress": 50 }
-]
-```
-
-### POST /tasks/:id/projects/:projectId
-Görevi ek bir projeye bağla.
-
-**Response:** `200 OK`
-```json
-{
-  "message": "Task linked to project",
-  "linkedProjects": [...]
-}
-```
-
-### DELETE /tasks/:id/projects/:projectId
-Görevi projeden çıkar (ana proje hariç).
-
-### GET /tasks/:id/documents
-Göreve bağlı dokümanları getir.
-
-### POST /tasks/:id/documents/:documentId
-Göreve doküman bağla.
-
-**Response:**
-```json
-{
-  "message": "Document linked to task",
-  "linkedDocuments": [...]
-}
-```
-
-### DELETE /tasks/:id/documents/:documentId
-Görevden doküman bağlantısını kaldır.
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/tasks/:id/projects` | GET | Bağlı projeler |
+| `/tasks/:id/projects/:projectId` | POST | Projeye bağla |
+| `/tasks/:id/projects/:projectId` | DELETE | Projeden çıkar |
+| `/tasks/:id/documents` | GET | Bağlı dokümanlar |
+| `/tasks/:id/documents/:documentId` | POST | Doküman bağla |
+| `/tasks/:id/documents/:documentId` | DELETE | Doküman çıkar |
 
 ---
 
 ## 5. Sprints
 
-### GET /sprints/:id
-Sprint detaylarını getir.
-
-### PATCH /sprints/:id
-Sprint'i güncelle.
-
-### PATCH /sprints/:id/start
-Sprint'i başlat.
-
-### PATCH /sprints/:id/complete
-Sprint'i tamamla.
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/sprints/:id` | GET | Sprint detay |
+| `/sprints/:id` | PATCH | Sprint güncelle |
+| `/sprints/:id/start` | PATCH | Sprint başlat |
+| `/sprints/:id/complete` | PATCH | Sprint tamamla |
 
 ---
 
 ## 6. Documents
 
-### GET /documents
-Dokümanları listele.
-
-**Query Parameters:**
-- `projectId` - Projeye göre filtrele
-- `type` - `PDF`, `DOCX`, `XLSX`, `PPTX`, `TXT`
-- `analysisStatus` - `pending`, `analyzing`, `completed`
-- `sortBy`, `sortOrder` - Sıralama
-
-### GET /documents/stats
-Doküman istatistiklerini getir.
-
-**Response:**
-```json
-{
-  "total": 25,
-  "analyzed": 18,
-  "pending": 7,
-  "byType": {
-    "pdf": 15,
-    "docx": 5,
-    "xlsx": 3,
-    "pptx": 1,
-    "txt": 1,
-    "other": 0
-  }
-}
-```
-
-### POST /documents/upload
-Doküman yükle (multipart/form-data).
-
-### GET /documents/:id
-Doküman detaylarını getir.
-
-### PATCH /documents/:id
-Dokümanı güncelle.
-
-### DELETE /documents/:id
-Dokümanı sil.
-
-### POST /documents/:id/analyze
-AI analizi başlat.
-
-### GET /documents/:id/analysis
-Doküman analizini getir.
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/documents` | GET | Doküman listesi |
+| `/documents/stats` | GET | Doküman istatistikleri |
+| `/documents/upload` | POST | Doküman yükle (multipart) |
+| `/documents/:id` | GET | Doküman detay |
+| `/documents/:id` | PATCH | Doküman güncelle |
+| `/documents/:id` | DELETE | Doküman sil |
+| `/documents/:id/analyze` | POST | AI analizi başlat |
+| `/documents/:id/analysis` | GET | Analiz sonucu |
 
 ---
 
 ## 7. Analyses
 
-### GET /analyses
-Tüm analizleri listele.
-
-### GET /analyses/:id
-Analiz detaylarını getir.
-
-### PATCH /analyses/:id/save
-Analizi kaydet.
-
-### POST /analyses/:id/share
-Analizi paylaş.
-
-### POST /analyses/:id/generate-link
-Paylaşım linki oluştur.
-
-### PATCH /analyses/:id/actions/:actionId/mark-as-task
-Aksiyonu görev olarak işaretle.
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/analyses` | GET | Analiz listesi |
+| `/analyses/:id` | GET | Analiz detay |
+| `/analyses/:id/save` | PATCH | Analizi kaydet |
+| `/analyses/:id/share` | POST | Analizi paylaş |
+| `/analyses/:id/generate-link` | POST | Paylaşım linki oluştur |
 
 ---
 
 ## 8. Gamification
 
-### GET /gamification/profile
-Kullanıcının oyunlaştırma profilini getir.
-
-### GET /gamification/leaderboard
-Liderlik tablosunu getir.
-
-**Query Parameters:**
-- `period` - `all-time`, `weekly`, `monthly`
-- `limit`, `page` - Sayfalama
-
-### GET /gamification/badges
-Tüm rozetleri getir.
-
-### GET /gamification/achievements
-Tüm başarımları ilerleme ile getir.
-
-### GET /gamification/achievements/:id
-Tek başarım detayı.
-
-### POST /gamification/achievements/:id/unlock
-Başarım aç.
-
-### GET /gamification/streak
-Seri bilgisini getir.
-
-### GET /gamification/recent-activities
-Son XP aktivitelerini getir.
-
-### GET /gamification/skills
-Beceri dağılımını getir.
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/gamification/profile` | GET | Oyunlaştırma profili |
+| `/gamification/leaderboard` | GET | Liderlik tablosu |
+| `/gamification/badges` | GET | Tüm rozetler |
+| `/gamification/achievements` | GET | Başarımlar |
+| `/gamification/achievements/:id` | GET | Başarım detay |
+| `/gamification/achievements/:id/unlock` | POST | Başarım aç |
+| `/gamification/streak` | GET | Seri bilgisi |
+| `/gamification/recent-activities` | GET | Son XP aktiviteleri |
+| `/gamification/skills` | GET | Beceri dağılımı |
 
 ---
 
 ## 9. Dashboard
 
-### GET /dashboard/stats
-Dashboard özet istatistikleri.
-
-### GET /dashboard/active-projects
-Aktif projeleri getir.
-
-### GET /dashboard/upcoming-tasks
-Yaklaşan görevleri getir.
-
-### GET /dashboard/ai-suggestions
-AI önerilerini getir.
-
-### GET /dashboard/kpi-summary
-KPI özeti.
-
-### GET /dashboard/risk-alerts
-Risk uyarıları.
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/dashboard/stats` | GET | Özet istatistikler |
+| `/dashboard/active-projects` | GET | Aktif projeler |
+| `/dashboard/upcoming-tasks` | GET | Yaklaşan görevler |
+| `/dashboard/ai-suggestions` | GET | AI önerileri |
+| `/dashboard/kpi-summary` | GET | KPI özeti |
+| `/dashboard/risk-alerts` | GET | Risk uyarıları |
 
 ---
 
 ## 10. Calendar
 
-### GET /calendar/events
-Takvim etkinliklerini getir.
-
-**Query Parameters:**
-- `year`, `month` - Tarih filtresi
-- `projectId` - Projeye göre filtrele
-
-### POST /calendar/events
-Etkinlik oluştur.
-
-### GET /calendar/events/:id
-Etkinlik detayı.
-
-### PATCH /calendar/events/:id
-Etkinliği güncelle.
-
-### DELETE /calendar/events/:id
-Etkinliği sil.
-
-### PATCH /calendar/events/:id/respond
-Etkinliğe yanıt ver.
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/calendar/events` | GET | Etkinlikler |
+| `/calendar/events` | POST | Etkinlik oluştur |
+| `/calendar/events/:id` | GET | Etkinlik detay |
+| `/calendar/events/:id` | PATCH | Etkinlik güncelle |
+| `/calendar/events/:id` | DELETE | Etkinlik sil |
+| `/calendar/events/:id/respond` | PATCH | Etkinliğe yanıt |
 
 ---
 
 ## 11. Team
 
-### GET /team/members
-Ekip üyelerini listele.
-
-**Query Parameters:**
-- `department` - Departmana göre filtrele
-- `search` - İsim veya pozisyon ara
-- `status` - `online`, `busy`, `offline`, `away`
-
-### GET /team/departments
-Departmanları listele.
-
-### POST /team/members
-Yeni ekip üyesi davet et.
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/team/members` | GET | Ekip üyeleri |
+| `/team/departments` | GET | Departmanlar |
+| `/team/members` | POST | Üye davet et |
 
 ---
 
 ## 12. KPI
 
-### GET /kpi/dashboard
-KPI dashboard verisi.
-
-**Query Parameters:**
-- `projectId` - Projeye göre filtrele
-
-**Response:**
-```json
-{
-  "revenue": { "total": 2450000, "used": 1800000, "trend": 12.5, "currency": "₺" },
-  "projectSuccessRate": 94,
-  "avgCompletionTime": 14,
-  "activeIssues": 12,
-  "taskCompletionRate": 72,
-  "totalProjects": 12,
-  "completedProjects": 5,
-  "riskProjects": 2,
-  "avgProgress": 65
-}
-```
-
-### GET /kpi/revenue
-Gelir verileri (grafik için).
-
-**Query Parameters:**
-- `period` - `ytd`, `month`, `quarter`
-- `projectId` - Projeye göre filtrele
-
-### GET /kpi/project-performance
-Proje bazlı performans karşılaştırma.
-
-### GET /kpi/completion-stats
-Tamamlanma istatistikleri.
-
-### GET /kpi/issues
-Aktif sorunlar.
-
-### GET /kpi/team-performance
-Ekip performans sıralaması.
-
-**Query Parameters:**
-- `projectId` - Projeye göre filtrele
-- `period` - Dönem filtresi
-
-**Response:**
-```json
-[
-  {
-    "userId": "...",
-    "name": "Ahmet Yılmaz",
-    "role": "Developer",
-    "avatar": 5,
-    "completedTasks": 25,
-    "totalTasks": 30,
-    "totalHours": 120,
-    "efficiency": 83,
-    "score": 2500
-  }
-]
-```
-
----
-
-### KPI Goals (Yeni - Özel Hedef Yönetimi)
-
-### GET /kpi/goals
-KPI hedeflerini listele.
-
-**Query Parameters:**
-- `projectId` - Projeye göre filtrele
-- `category` - `revenue`, `project`, `team`, `quality`
-- `status` - `on-track`, `at-risk`, `behind`, `completed`
-
-**Response:**
-```json
-[
-  {
-    "_id": "...",
-    "name": "Aylık Gelir Hedefi",
-    "target": 500000,
-    "current": 425000,
-    "unit": "₺",
-    "category": "revenue",
-    "status": "on-track",
-    "progress": 85,
-    "isCustom": false
-  }
-]
-```
-
-### POST /kpi/goals
-Yeni KPI hedefi oluştur.
-
-**Request Body:**
-```json
-{
-  "name": "Sprint Velocity Hedefi",
-  "description": "Q1 için sprint hızı hedefi",
-  "target": 50,
-  "current": 35,
-  "unit": "points",
-  "category": "project",
-  "deadline": "2025-03-31",
-  "status": "on-track",
-  "projectId": "..." 
-}
-```
-
-### PATCH /kpi/goals/:id
-KPI hedefini güncelle.
-
-### DELETE /kpi/goals/:id
-KPI hedefini sil (sadece özel hedefler).
-
-### GET /kpis/:id
-Tek KPI detayı.
-
-### POST /kpis/:id/record
-KPI değeri kaydet.
-
-### GET /kpis/:id/history
-KPI geçmişi.
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/kpi/dashboard` | GET | KPI dashboard |
+| `/kpi/revenue` | GET | Gelir verileri |
+| `/kpi/project-performance` | GET | Proje performansı |
+| `/kpi/completion-stats` | GET | Tamamlanma istatistikleri |
+| `/kpi/issues` | GET | Aktif sorunlar |
+| `/kpi/team-performance` | GET | Ekip performansı |
+| `/kpi/goals` | GET | KPI hedefleri |
+| `/kpi/goals` | POST | Hedef oluştur |
+| `/kpi/goals/:id` | PATCH | Hedef güncelle |
+| `/kpi/goals/:id` | DELETE | Hedef sil |
 
 ---
 
 ## 13. Notifications
 
-### GET /notifications
-Bildirimleri listele.
-
-**Query Parameters:**
-- `isRead` - `true` | `false`
-- `type` - `info`, `success`, `warning`, `error`, `meeting`, `deadline`, `mention`, `ai`, `badge`, `xp`
-- `page`, `limit` - Sayfalama
-
-### GET /notifications/unread-count
-Okunmamış bildirim sayısı.
-
-### PATCH /notifications/:id/read
-Bildirimi okundu işaretle.
-
-### PATCH /notifications/read-all
-Tümünü okundu işaretle.
-
-### DELETE /notifications/:id
-Bildirimi sil.
-
-### POST /notifications/:id/dismiss
-Bildirimi kapat.
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/notifications` | GET | Bildirimler |
+| `/notifications/unread-count` | GET | Okunmamış sayısı |
+| `/notifications/:id/read` | PATCH | Okundu işaretle |
+| `/notifications/read-all` | PATCH | Tümünü okundu işaretle |
+| `/notifications/:id` | DELETE | Bildirimi sil |
 
 ---
 
 ## 14. Settings
 
-### GET /settings/notifications
-Bildirim ayarlarını getir.
-
-### PATCH /settings/notifications
-Bildirim ayarlarını güncelle.
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/settings/notifications` | GET | Bildirim ayarları |
+| `/settings/notifications` | PATCH | Ayarları güncelle |
 
 ---
 
 ## 15. Help
 
-### GET /help/search
-Yardım makalelerinde ara.
-
-**Query Parameters:**
-- `q` - Arama terimi
-
-### GET /help/articles
-Kategoriye göre makaleler.
-
-**Query Parameters:**
-- `category` - `getting-started`, `projects`, `tasks`, `gamification`, `team`, `settings`, `faq`
-
-### GET /help/faq
-Sık sorulan soruları getir.
-
-### POST /help/support-ticket
-Destek talebi oluştur.
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/help/search` | GET | Yardım ara |
+| `/help/articles` | GET | Yardım makaleleri |
+| `/help/faq` | GET | SSS |
+| `/help/support-ticket` | POST | Destek talebi |
 
 ---
 
 ## 16. Search
 
-### GET /search
-Global arama.
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/search` | GET | Global arama |
 
-**Query Parameters:**
-- `q` - Arama terimi
+---
 
-**Response:**
-```json
+## 17. Database Models
+
+### User
+```javascript
 {
-  "projects": [...],
-  "tasks": [...],
-  "documents": [...],
-  "users": [...]
+  name: String (required),
+  email: String (required, unique),
+  password: String (required, hashed),
+  role: String (default: 'Member'),
+  department: String (default: 'General'),
+  location: String (default: 'Remote'),
+  bio: String,
+  avatar: Number (Picsum ID),
+  status: ['online', 'busy', 'offline', 'away'],
+  // Gamification
+  level: Number (default: 1),
+  xp: Number (default: 0),
+  badges: [{ name, icon, color, earnedAt }],
+  skills: [{ name, level }],
+  currentStreak: Number,
+  longestStreak: Number,
+  lastActiveDate: Date,
+  unlockedAchievements: [String],
+  phone: String,
+  joinDate: Date
+}
+// Virtual: xpToNextLevel = level * 1000
+```
+
+### Project
+```javascript
+{
+  title: String (required),
+  description: String,
+  status: ['Active', 'Completed', 'On Hold', 'At Risk'],
+  methodology: ['Waterfall', 'Scrum', 'Hybrid'],
+  progress: Number (0-100),
+  startDate: Date (required),
+  endDate: Date (required),
+  budget: Number,
+  budgetUsed: Number,
+  color: String,
+  manager: ObjectId -> User (required),
+  members: [ObjectId -> User],
+  kpis: [{ name, target, unit, current }]
+}
+```
+
+### Task
+```javascript
+{
+  title: String (required),
+  description: String,
+  status: ['Todo', 'In Progress', 'Review', 'Done', 'Blocked'],
+  priority: ['Low', 'Medium', 'High', 'Urgent'],
+  order: Number (Kanban sıralama),
+  project: ObjectId -> Project (required),
+  projects: [ObjectId -> Project], // Multi-linking
+  sprint: ObjectId -> Sprint,
+  assignee: ObjectId -> User,
+  dueDate: Date,
+  estimatedHours: Number,
+  loggedHours: Number,
+  tags: [String],
+  attachments: [{ name, url, mimeType, size, uploadedAt }],
+  documents: [ObjectId -> Document] // Multi-linking
+}
+// Virtual: progress = (loggedHours / estimatedHours) * 100
+```
+
+### Sprint
+```javascript
+{
+  name: String (required),
+  project: ObjectId -> Project (required),
+  startDate: Date (required),
+  endDate: Date (required),
+  goal: String,
+  status: ['Planning', 'Active', 'Completed', 'Cancelled'],
+  velocity: Number,
+  plannedPoints: Number,
+  completedPoints: Number
+}
+```
+
+### Document
+```javascript
+{
+  name: String (required),
+  project: ObjectId -> Project,
+  uploader: ObjectId -> User (required),
+  type: String (PDF, DOCX, XLSX...),
+  size: String ("2.4 MB"),
+  path: String (Cloudinary URL),
+  analysis: {
+    status: ['pending', 'processing', 'completed', 'failed'],
+    summary: String,
+    findings: [{ type, content }],
+    risks: [{ severity, content, page }],
+    suggestedActions: [{ title, priority, canCreateTask }],
+    tags: [String]
+  }
+}
+```
+
+### Analysis
+```javascript
+{
+  document: ObjectId -> Document (required),
+  status: ['pending', 'analyzing', 'completed', 'failed'],
+  summary: String,
+  findings: [{ type, content, page }],
+  risks: [{ severity, content, page, section }],
+  suggestedActions: [{ title, priority, canCreateTask, addedAsTask, taskId }],
+  userActions: [{ text, priority, addedAsTask, taskId }],
+  tags: [String],
+  aiModel: String (default: 'gpt-4'),
+  confidence: Number (0-100),
+  analyzedAt: Date,
+  savedAt: Date,
+  sharedWith: [ObjectId -> User],
+  shareLink: String,
+  createdBy: ObjectId -> User (required)
+}
+```
+
+### Notification
+```javascript
+{
+  recipient: ObjectId -> User (required),
+  type: ['xp', 'warning', 'badge', 'ai', 'meeting', 'task', 'success', 'error', 'info', 'mention', 'deadline'],
+  title: String (required),
+  message: String (required),
+  isRead: Boolean (default: false),
+  actions: [{ label, url, type }],
+  metadata: Map
+}
+```
+
+### Activity
+```javascript
+{
+  user: ObjectId -> User (required),
+  project: ObjectId -> Project,
+  task: ObjectId -> Task,
+  action: String (required),
+  type: ['create', 'update', 'complete', 'comment', 'approval', 'gamification', 'time_log', 'achievement', 'praise'],
+  content: String,
+  xpEarned: Number
+}
+```
+
+### CalendarEvent
+```javascript
+{
+  title: String (required),
+  description: String,
+  type: ['meeting', 'deadline', 'task', 'reminder', 'other'],
+  startDate: Date (required),
+  endDate: Date,
+  allDay: Boolean,
+  color: String,
+  project: ObjectId -> Project,
+  task: ObjectId -> Task,
+  creator: ObjectId -> User (required),
+  attendees: [ObjectId -> User],
+  location: String,
+  meetingUrl: String,
+  reminders: [{ time, sent }]
+}
+```
+
+### Goal (KPI)
+```javascript
+{
+  name: String (required),
+  description: String,
+  target: Number (required),
+  current: Number (default: 0),
+  unit: String,
+  category: ['revenue', 'project', 'team', 'quality'],
+  deadline: Date,
+  status: ['on-track', 'at-risk', 'behind', 'completed'],
+  project: ObjectId -> Project,
+  createdBy: ObjectId -> User (required),
+  isCustom: Boolean
+}
+// Virtual: progress = (current / target) * 100
+```
+
+### Settings
+```javascript
+{
+  user: ObjectId -> User (required, unique),
+  notifications: {
+    email: Boolean,
+    desktop: Boolean,
+    taskAssignments: Boolean,
+    deadlineReminders: Boolean,
+    weeklyReport: Boolean,
+    mentionAlerts: Boolean,
+    projectUpdates: Boolean
+  },
+  preferences: {
+    language: String (default: 'tr'),
+    timezone: String (default: 'Europe/Istanbul'),
+    theme: ['light', 'dark', 'system'],
+    dateFormat: String
+  }
+}
+```
+
+### Achievement
+```javascript
+{
+  key: String (required, unique),
+  name: String (required),
+  description: String (required),
+  howTo: String,
+  icon: String (Lucide icon),
+  xp: Number (default: 50),
+  color: String,
+  requirement: Number,
+  type: ['tasks', 'streak', 'level', 'projects', 'documents']
+}
+```
+
+### HelpArticle
+```javascript
+{
+  title: String (required),
+  content: String (required),
+  category: ['getting-started', 'projects', 'tasks', 'gamification', 'team', 'settings', 'faq'],
+  tags: [String],
+  order: Number,
+  isPublished: Boolean
+}
+```
+
+### SupportTicket
+```javascript
+{
+  user: ObjectId -> User (required),
+  subject: String (required),
+  message: String (required),
+  category: ['bug', 'feature', 'question', 'other'],
+  status: ['open', 'in-progress', 'resolved', 'closed'],
+  priority: ['low', 'medium', 'high'],
+  responses: [{ user, message, createdAt }]
 }
 ```
 
@@ -711,24 +581,25 @@ Global arama.
 
 ## WebSocket Events
 
-| Event | Description | Payload |
-|-------|-------------|---------|
-| `notification` | Yeni bildirim | `{id, type, title, message}` |
-| `task:updated` | Görev güncellendi | `{taskId, changes, updatedBy}` |
-| `task:created` | Yeni görev | `{task}` |
-| `project:updated` | Proje güncellendi | `{projectId, changes}` |
-| `comment:added` | Yeni yorum | `{taskId, comment}` |
-| `user:status` | Kullanıcı durumu | `{userId, status}` |
-| `xp:earned` | XP kazanıldı | `{amount, reason, newTotal}` |
-| `level:up` | Seviye atlandı | `{newLevel, message}` |
-| `badge:earned` | Rozet kazanıldı | `{badge}` |
+| Event | Description |
+|-------|-------------|
+| `notification` | Yeni bildirim |
+| `task:updated` | Görev güncellendi |
+| `task:created` | Yeni görev |
+| `project:updated` | Proje güncellendi |
+| `comment:added` | Yeni yorum |
+| `user:status` | Kullanıcı durumu |
+| `xp:earned` | XP kazanıldı |
+| `level:up` | Seviye atlandı |
+| `badge:earned` | Rozet kazanıldı |
 
 ---
 
 **Last Updated:** December 25, 2024  
-**Version:** 2.1
+**Version:** 2.2
 
-### Değişiklik Geçmişi
-- **v2.1 (25 Aralık 2024):** Task multi-project linking, task-document linking, KPI Goals CRUD, team performance, document stats eklendi
-- **v2.0 (15 Aralık 2024):** Tüm yeni endpoint'ler eklendi
-- **v1.0 (29 Kasım 2024):** İlk sürüm
+### Changelog
+- **v2.2**: Added complete Database Models section (13 models)
+- **v2.1**: Task multi-project/document linking, KPI Goals CRUD
+- **v2.0**: All new endpoints
+- **v1.0**: Initial release

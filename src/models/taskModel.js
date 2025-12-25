@@ -58,7 +58,7 @@ const taskSchema = mongoose.Schema(
             {
                 name: String,
                 url: String,
-                type: String,
+                mimeType: String,
                 size: Number,
                 uploadedAt: { type: Date, default: Date.now }
             }
