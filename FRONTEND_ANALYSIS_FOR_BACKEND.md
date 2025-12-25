@@ -43,6 +43,7 @@
 /projects/:id            → Proje Detay
 /tasks                   → Görev Listesi
 /tasks/:id               → Görev Detay
+/documents               → Doküman Listesi (Yeni)
 /documents/analysis      → AI Doküman Analizi
 /gamification            → Oyunlaştırma Profili
 /leaderboard             → Liderlik Tablosu
@@ -72,7 +73,14 @@ src/
 │   ├── AddMemberModal.tsx   → Ekip üyesi ekleme modal
 │   ├── DocumentUploadModal.tsx   → Doküman yükleme modal (AI analiz)
 │   ├── ShareAnalysisModal.tsx    → Analiz paylaşım modal
-│   └── CreateTaskFromDocModal.tsx → Doküman aksiyonundan görev oluşturma
+│   ├── CreateTaskFromDocModal.tsx → Doküman aksiyonundan görev oluşturma
+│   ├── AddTaskToProjectModal.tsx  → Görevi projelere bağlama modal (Yeni)
+│   ├── AddDocumentToTaskModal.tsx → Dokümanı göreve bağlama modal (Yeni)
+│   ├── LinkedProjectsCard.tsx     → Göreven bağlı projeler kartı (Yeni)
+│   ├── LinkedTasksCard.tsx        → Dokümana bağlı görevler kartı (Yeni)
+│   ├── LinkedDocumentsModal.tsx   → Göreve bağlı dokümanlar modal (Yeni)
+│   ├── ToastContainer.tsx         → Bildirim toast sistemi
+│   └── UndoToast.tsx              → Geri al bildirimi
 ├── store/
 │   ├── index.ts             → Store export hub
 │   ├── userStore.ts         → Kullanıcı state yönetimi
@@ -100,6 +108,7 @@ src/
     ├── TeamPage.tsx
     ├── TeamMemberProfile.tsx
     ├── KPIPage.tsx
+    ├── DocumentsPage.tsx    → Doküman listesi sayfası (Yeni)
     └── HelpPage.tsx
 ```
 
@@ -371,18 +380,15 @@ interface Task {
   description: string;
   status: 'Todo' | 'In Progress' | 'Review' | 'Done';
   priority: 'Low' | 'Medium' | 'High' | 'Urgent';
-  projectId: string;
-  projectName: string;
-  projectColor: string;
-  assignee: {
-    name: string;
-    avatar: number;
-  };
+  projectIds: string[];     // Birden fazla projeye bağlanabilir (Yeni)
+  assigneeId: string;
+  documentIds?: string[];   // Göreve bağlı doküman ID'leri (Yeni)
   dueDate: string;
   tags: string[];
   estimatedHours: number;
   loggedHours: number;
   createdAt: string;
+  updatedAt: string;
 }
 ```
 
@@ -414,12 +420,18 @@ GET /tasks/stats/by-status
 
 **Dosya**: `src/pages/TaskDetail.tsx`
 
+**İlgili Bileşenler** (Yeni):
+- `LinkedProjectsCard.tsx` - Göreve bağlı projeler kartı
+- `LinkedDocumentsModal.tsx` - Göreve bağlı dokümanlar modali
+- `AddTaskToProjectModal.tsx` - Görevi projelere bağlama
+
 #### Sol Kolon (Ana İçerik):
 - Status badge
 - Görev başlığı
 - Atanan kişi (avatar + isim)
 - Son tarih
 - Tahmini süre
+- **Bağlı Projeler** (birden fazla proje gösterimi, renk badge'leri)
 - Açıklama (zengin metin)
 - Etiketler (tags)
 - İlerleme çubuğu (loggedHours / estimatedHours)
@@ -438,9 +450,17 @@ interface Activity {
 
 #### Sağ Kolon (Sidebar):
 - **YZ Önerileri**: Yapay zeka tarafından üretilen öneriler
-- **Etkilediği KPI'lar**: İlgili metrikler ve etki yüzdeleri
-- **İlgili Dokümanlar**: PDF, Excel vb.
-- Doküman ekleme butonu
+- **Görev İstatistikleri**: Zaman kullanımı, oluşturma/güncelleme tarihleri
+- **Bağlı Projeler Kartı** (`LinkedProjectsCard`):
+  - Projelere tıklanarak yönlendirme
+  - Projeden çıkarma butonu
+  - "Projeye Ekle" butonu (`AddTaskToProjectModal` açar)
+- **Bağlı Dokümanlar** butonuyla `LinkedDocumentsModal` açılır
+
+#### Multi-Linking Özellikleri (Yeni):
+- Bir görev birden fazla projeye eş zamanlı olarak bağlanabilir
+- Dokümanlar görevlere bağlanabilir ve bağlı dokümanlar modal ile görüntülenebilir
+- Toast bildirimleri ile bağlama/çıkarma işlemleri kullanıcıya bildirilir
 
 #### Gerekli API:
 ```
@@ -453,6 +473,12 @@ PATCH /tasks/:id (update)
 POST /tasks/:id/attachments
 GET /tasks/:id/kpi-impact
 GET /tasks/:id/ai-suggestions
+
+# Multi-Linking API (Yeni)
+POST /tasks/:id/projects/:projectId     # Görevi projeye bağla
+DELETE /tasks/:id/projects/:projectId   # Görevi projeden çıkar
+POST /tasks/:id/documents/:documentId   # Göreve doküman bağla
+DELETE /tasks/:id/documents/:documentId # Görevden doküman çıkar
 ```
 
 ---
@@ -634,6 +660,68 @@ PATCH /analyses/:id/actions/:actionId/mark-as-task
 # Görev Dönüşümü
 POST /tasks (action → task dönüşümü)
 POST /tasks/bulk (toplu aksiyon → görev)
+```
+
+---
+
+### 2.7.1 Doküman Listesi Sayfası (Yeni)
+
+**Dosya**: `src/pages/DocumentsPage.tsx`
+
+> **Yeni Sayfa**: Tüm dokümanların grid/list görünümü ile yönetimi ve AI analiz entegrasyonu.
+
+**İlgili Bileşenler**:
+- `DocumentUploadModal.tsx` - Doküman yükleme
+- `LinkedTasksCard.tsx` - Dokümana bağlı görevler
+
+#### Sayfa Özellikleri:
+
+**Header**:
+- "Dokümanlar" başlığı
+- "Yeni Doküman Yükle" butonu (gradient tasarım)
+
+**İstatistik Kartları (4 adet)**:
+1. **Toplam Doküman**: Tüm doküman sayısı
+2. **Analiz Edilmiş**: AI ile analiz edilen doküman sayısı
+3. **PDF Dosyaları**: PDF türünde doküman sayısı
+4. **Diğer Formatlar**: PDF dışı doküman sayısı
+
+**Filtreler ve Sıralama**:
+- Arama (doküman adı)
+- Dosya Türü Filtresi: Tümü, PDF, DOCX, XLSX, PPTX, TXT, Other
+- Proje Filtresi: Tümü, Projesiz, [Proje Listesi]
+- Sıralama: Tarih, Ad, Boyut, Tür
+- Sıralama Yönü: Artan/Azalan
+
+**Görüntüleme Modları**:
+- **Grid View**: Kart bazlı görünüm
+  - Dosya tipi ikonu (renkli)
+  - Dosya adı, boyutu, türü
+  - Proje adı (varsa)
+  - Yükleme tarihi
+  - AI Analiz durumu badge
+  - Hover: Görüntüle, Sil butonları
+  
+- **List View**: Tablo bazlı görünüm
+  - Kolonlar: Doküman, Tür, Boyut, Proje, Tarih, Durum, İşlem
+  - Dropdown menü: İndir, Sil
+
+**Doküman Aksiyonları**:
+- Tıklama: Analiz varsa görüntüle, yoksa AI analiz başlat
+- Analiz sayfasına yönlendirme
+- Silme (onay diyaloğu)
+
+**View Mode Persistence**:
+- LocalStorage'a kaydedilen görünüm tercihi
+
+#### Gerekli API:
+```
+GET /documents?type=&projectId=&sortBy=&sortOrder=&search=&page=&limit=
+GET /documents/stats
+POST /documents/upload (multipart/form-data)
+DELETE /documents/:id
+GET /documents/:id/analysis
+POST /documents/:id/analyze
 ```
 
 ---
@@ -1055,33 +1143,101 @@ POST /users/:id/assign-task
 
 **Dosya**: `src/pages/KPIPage.tsx`
 
-#### Özet Kartları:
+> **Güncelleme**: Tab sistemi, özel hedef yönetimi, ekip performans sıralaması ve proje bazlı filtreleme eklendi.
+
+#### Tab Sistemi:
+1. **Genel (Overview)**: Genel bakış ve grafikler
+2. **Hedefler (Goals)**: Hedef takip ve özel hedef oluşturma
+3. **Ekip (Team)**: Ekip performans sıralaması
+
+#### Zaman Aralığı Filtresi:
+- Haftalık / Aylık / Çeyreklik / Yıllık
+
+#### Proje Filtresi:
+- Tüm Projeler / [Proje Seçimi]
+
+#### Özet Kartları (Overview Tab):
 | Metrik | Veri |
 |--------|------|
-| Toplam Gelir (YTD) | ₺2,450,000 (+12.5% trend) |
-| Proje Başarı Oranı | 94% (Hedef: 90%) |
-| Ort. Tamamlanma | 14 Gün (-2 gün trend) |
-| Aktif Sorunlar | 12 (+3 bu hafta) |
+| Toplam Bütçe | ₺ formatında, trend göstergesi |
+| Tamamlanan Görevler | Tamamlanan/Toplam |
+| Ortalama İlerleme | % formatında |
+| Riskli Projeler | Sayı + aktif proje bilgisi |
 
-#### Grafikler:
+#### Grafikler (Overview Tab):
 
-**Finansal Genel Bakış (AreaChart)**:
+**Finansal Genel Bakış**:
+- Alan, Çubuk, Çizgi grafik seçimi
 ```typescript
 { name: string, revenue: number, profit: number }[]
 ```
 
-**Proje Bazlı Performans (BarChart)**:
+**Ekip Yetkinlik** (Radar Chart):
 ```typescript
-{ name: string, onTime: number, budget: number }[]
+{ subject: string, A: number, B: number, fullMark: number }[]
 ```
+
+**Proje Performans Karşılaştırması** (Area Chart):
+```typescript
+{ name: string, ilerleme: number, bütçe: number, görev: number }[]
+```
+
+#### Hedef Yönetimi (Goals Tab):
+```typescript
+interface Goal {
+  id: string;
+  name: string;
+  target: number;
+  current: number;
+  unit: string;
+  category: 'revenue' | 'project' | 'team' | 'quality';
+  deadline: string;
+  status: 'on-track' | 'at-risk' | 'behind' | 'completed';
+  projectId?: string;  // Projeye özgü hedefler için
+}
+```
+
+**Özel Hedef Oluşturma** (Yeni):
+- Modal ile yeni hedef ekleyebilme
+- Hedef adı, hedef/mevcut değer, birim
+- Kategori seçimi (💰 Gelir, 🎯 Proje, 👥 Ekip, ✅ Kalite)
+- Durum seçimi
+- Proje bağlantısı (opsiyonel)
+- Özel hedefler silinebilir
+
+#### Ekip Performansı (Team Tab):
+```typescript
+interface TeamPerformance {
+  userId: string;
+  name: string;
+  role: string;
+  avatar: number;
+  completedTasks: number;
+  totalHours: number;
+  efficiency: number;  // % olarak verimlilik
+  score: number;       // XP bazlı skor
+}
+```
+
+**Sıralama Görünümü**:
+- 1-3. sırada madalya ikonları
+- XP skoru ve görev sayısı
+- Verimlilik yüzdesi
 
 #### Gerekli API:
 ```
 GET /kpi/dashboard
-GET /kpi/revenue?period=ytd
+GET /kpi/revenue?period=ytd&projectId=
 GET /kpi/project-performance
 GET /kpi/completion-stats
 GET /kpi/issues
+GET /kpi/team-performance?projectId=&period=
+
+# Hedef Yönetimi API (Yeni)
+GET /kpi/goals?projectId=&category=&status=
+POST /kpi/goals
+PATCH /kpi/goals/:id
+DELETE /kpi/goals/:id
 ```
 
 ---
@@ -1733,5 +1889,10 @@ Tüm API response'ları aşağıdaki formatta olmalı:
 ---
 
 **Hazırlayan**: Antigravity AI Assistant  
-**Tarih**: 14 Aralık 2024  
-**Versiyon**: 1.0
+**Tarih**: 25 Aralık 2024  
+**Versiyon**: 1.2
+
+### Değişiklik Geçmişi
+- **v1.2 (25 Aralık 2024)**: Task-Project multi-linking, Task-Document linking, DocumentsPage, KPI custom goals eklendi
+- **v1.1 (14 Aralık 2024)**: Gamification karakter sistemi, 5 yeni modal bileşeni eklendi
+- **v1.0 (14 Aralık 2024)**: İlk sürüm

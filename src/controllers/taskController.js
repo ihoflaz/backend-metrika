@@ -376,6 +376,165 @@ const getTaskStats = async (req, res) => {
     res.json({ total, todo, inProgress, review, done });
 };
 
+// ================== MULTI-LINKING ENDPOINTS ==================
+
+// @desc    Link task to additional project
+// @route   POST /tasks/:id/projects/:projectId
+// @access  Private
+const linkTaskToProject = async (req, res) => {
+    const task = await Task.findById(req.params.id);
+
+    if (!task) {
+        res.status(404);
+        throw new Error('Task not found');
+    }
+
+    const projectId = req.params.projectId;
+
+    // Check if project exists
+    const project = await Project.findById(projectId);
+    if (!project) {
+        res.status(404);
+        throw new Error('Project not found');
+    }
+
+    // Initialize projects array if needed
+    if (!task.projects) task.projects = [];
+
+    // Check if already linked
+    if (task.project.toString() === projectId ||
+        task.projects.some(p => p.toString() === projectId)) {
+        res.status(400);
+        throw new Error('Task is already linked to this project');
+    }
+
+    task.projects.push(projectId);
+    await task.save();
+
+    await task.populate('projects', 'title color');
+
+    res.json({
+        message: 'Task linked to project',
+        linkedProjects: [task.project, ...task.projects]
+    });
+};
+
+// @desc    Unlink task from project
+// @route   DELETE /tasks/:id/projects/:projectId
+// @access  Private
+const unlinkTaskFromProject = async (req, res) => {
+    const task = await Task.findById(req.params.id);
+
+    if (!task) {
+        res.status(404);
+        throw new Error('Task not found');
+    }
+
+    const projectId = req.params.projectId;
+
+    // Cannot unlink from main project
+    if (task.project.toString() === projectId) {
+        res.status(400);
+        throw new Error('Cannot unlink from main project. Delete the task instead.');
+    }
+
+    // Remove from projects array
+    if (task.projects) {
+        task.projects = task.projects.filter(p => p.toString() !== projectId);
+        await task.save();
+    }
+
+    res.json({ message: 'Task unlinked from project' });
+};
+
+// @desc    Link document to task
+// @route   POST /tasks/:id/documents/:documentId
+// @access  Private
+const linkDocumentToTask = async (req, res) => {
+    const task = await Task.findById(req.params.id);
+
+    if (!task) {
+        res.status(404);
+        throw new Error('Task not found');
+    }
+
+    const documentId = req.params.documentId;
+
+    // Initialize documents array if needed
+    if (!task.documents) task.documents = [];
+
+    // Check if already linked
+    if (task.documents.some(d => d.toString() === documentId)) {
+        res.status(400);
+        throw new Error('Document is already linked to this task');
+    }
+
+    task.documents.push(documentId);
+    await task.save();
+
+    await task.populate('documents', 'name type size path');
+
+    res.json({
+        message: 'Document linked to task',
+        linkedDocuments: task.documents
+    });
+};
+
+// @desc    Unlink document from task
+// @route   DELETE /tasks/:id/documents/:documentId
+// @access  Private
+const unlinkDocumentFromTask = async (req, res) => {
+    const task = await Task.findById(req.params.id);
+
+    if (!task) {
+        res.status(404);
+        throw new Error('Task not found');
+    }
+
+    const documentId = req.params.documentId;
+
+    if (task.documents) {
+        task.documents = task.documents.filter(d => d.toString() !== documentId);
+        await task.save();
+    }
+
+    res.json({ message: 'Document unlinked from task' });
+};
+
+// @desc    Get task's linked documents
+// @route   GET /tasks/:id/documents
+// @access  Private
+const getTaskDocuments = async (req, res) => {
+    const task = await Task.findById(req.params.id)
+        .populate('documents', 'name type size path uploadDate uploader');
+
+    if (!task) {
+        res.status(404);
+        throw new Error('Task not found');
+    }
+
+    res.json(task.documents || []);
+};
+
+// @desc    Get task's linked projects
+// @route   GET /tasks/:id/projects
+// @access  Private
+const getTaskProjects = async (req, res) => {
+    const task = await Task.findById(req.params.id)
+        .populate('project', 'title color progress status')
+        .populate('projects', 'title color progress status');
+
+    if (!task) {
+        res.status(404);
+        throw new Error('Task not found');
+    }
+
+    // Combine main project with additional projects
+    const allProjects = [task.project, ...(task.projects || [])];
+
+    res.json(allProjects);
+};
+
 export {
     getTasks,
     getTaskById,
@@ -393,5 +552,13 @@ export {
     addTaskAttachment,
     createBulkTasks,
     getTaskStats,
-    reorderTasks
+    reorderTasks,
+    // Multi-linking
+    linkTaskToProject,
+    unlinkTaskFromProject,
+    linkDocumentToTask,
+    unlinkDocumentFromTask,
+    getTaskDocuments,
+    getTaskProjects
 };
+

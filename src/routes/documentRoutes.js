@@ -6,7 +6,8 @@ import {
     updateDocument,
     deleteDocument,
     analyzeDocument,
-    getDocumentAnalysis
+    getDocumentAnalysis,
+    getDocumentStats
 } from '../controllers/documentController.js';
 import { protect } from '../middleware/authMiddleware.js';
 import upload from '../middleware/uploadMiddleware.js';
@@ -14,6 +15,7 @@ import upload from '../middleware/uploadMiddleware.js';
 const router = express.Router();
 
 router.get('/', protect, getDocuments);
+router.get('/stats', protect, getDocumentStats);
 router.post('/upload', protect, upload.single('file'), uploadDocument);
 
 router.route('/:id')

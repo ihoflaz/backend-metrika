@@ -162,6 +162,38 @@ const getDocumentAnalysis = async (req, res) => {
     }
 };
 
+// @desc    Get document statistics
+// @route   GET /documents/stats
+// @access  Private
+const getDocumentStats = async (req, res) => {
+    const total = await Document.countDocuments();
+
+    // Count by analysis status
+    const analyzed = await Document.countDocuments({ 'analysis.status': 'completed' });
+
+    // Count by type
+    const pdfCount = await Document.countDocuments({ type: 'PDF' });
+    const docxCount = await Document.countDocuments({ type: 'DOCX' });
+    const xlsxCount = await Document.countDocuments({ type: 'XLSX' });
+    const pptxCount = await Document.countDocuments({ type: 'PPTX' });
+    const txtCount = await Document.countDocuments({ type: 'TXT' });
+    const otherCount = total - pdfCount - docxCount - xlsxCount - pptxCount - txtCount;
+
+    res.json({
+        total,
+        analyzed,
+        pending: total - analyzed,
+        byType: {
+            pdf: pdfCount,
+            docx: docxCount,
+            xlsx: xlsxCount,
+            pptx: pptxCount,
+            txt: txtCount,
+            other: otherCount > 0 ? otherCount : 0
+        }
+    });
+};
+
 export {
     getDocuments,
     getDocumentById,
@@ -169,5 +201,6 @@ export {
     updateDocument,
     deleteDocument,
     analyzeDocument,
-    getDocumentAnalysis
+    getDocumentAnalysis,
+    getDocumentStats
 };

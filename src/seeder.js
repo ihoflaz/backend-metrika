@@ -15,6 +15,8 @@ import CalendarEvent from './models/calendarEventModel.js';
 import Analysis from './models/analysisModel.js';
 import Settings from './models/settingsModel.js';
 import { HelpArticle, SupportTicket } from './models/helpModel.js';
+import Goal from './models/goalModel.js';
+
 
 dotenv.config();
 
@@ -693,6 +695,9 @@ const importData = async () => {
         console.log('📚 Generating Help Articles...');
         await generateHelpArticles();
 
+        console.log('🎯 Generating KPI Goals...');
+        await generateGoals(projects, users);
+
         console.log('\n✨ Data Seeding Completed! 🚀');
         console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         console.log(`  👥 ${users.length} Users`);
@@ -700,6 +705,7 @@ const importData = async () => {
         console.log(`  🏃 ${sprints.length} Sprints`);
         console.log(`  📄 ${documents.length} Documents`);
         console.log(`  📚 8 Help Articles`);
+        console.log(`  🎯 KPI Goals`);
         console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         console.log('\n🔑 Login: admin@metrika.com / 123456\n');
 
@@ -710,4 +716,79 @@ const importData = async () => {
     }
 };
 
+// Generate KPI Goals
+const generateGoals = async (projects, users) => {
+    const goals = [];
+    const admin = users.find(u => u.role === 'Admin');
+
+    // System goals (not deletable)
+    goals.push({
+        name: 'Aylık Gelir Hedefi',
+        description: 'Aylık gelir hedefi',
+        target: 500000,
+        current: 425000,
+        unit: '₺',
+        category: 'revenue',
+        status: 'on-track',
+        createdBy: admin._id,
+        isCustom: false
+    });
+
+    goals.push({
+        name: 'Görev Tamamlama Oranı',
+        description: 'Aylık görev tamamlama hedefi',
+        target: 100,
+        current: 72,
+        unit: '%',
+        category: 'project',
+        status: 'on-track',
+        createdBy: admin._id,
+        isCustom: false
+    });
+
+    goals.push({
+        name: 'Ekip Memnuniyeti',
+        description: 'Çeyreklik ekip memnuniyet anketi',
+        target: 90,
+        current: 85,
+        unit: '%',
+        category: 'team',
+        status: 'on-track',
+        createdBy: admin._id,
+        isCustom: false
+    });
+
+    goals.push({
+        name: 'Bug Oranı',
+        description: 'Sprint başına maksimum bug sayısı',
+        target: 5,
+        current: 3,
+        unit: 'adet',
+        category: 'quality',
+        status: 'on-track',
+        createdBy: admin._id,
+        isCustom: false
+    });
+
+    // Project-specific goals
+    for (const project of projects.slice(0, 4)) {
+        goals.push({
+            name: `${project.title.substring(0, 15)} - Sprint Velocity`,
+            target: 40,
+            current: randomInt(25, 45),
+            unit: 'points',
+            category: 'project',
+            project: project._id,
+            status: sample(['on-track', 'at-risk', 'completed']),
+            deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+            createdBy: admin._id,
+            isCustom: true
+        });
+    }
+
+    await Goal.deleteMany();
+    await Goal.insertMany(goals);
+};
+
 importData();
+

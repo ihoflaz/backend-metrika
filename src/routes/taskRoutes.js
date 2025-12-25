@@ -15,7 +15,14 @@ import {
     getTaskAiSuggestions,
     addTaskAttachment,
     createBulkTasks,
-    getTaskStats
+    getTaskStats,
+    // Multi-linking
+    linkTaskToProject,
+    unlinkTaskFromProject,
+    linkDocumentToTask,
+    unlinkDocumentFromTask,
+    getTaskDocuments,
+    getTaskProjects
 } from '../controllers/taskController.js';
 import { protect } from '../middleware/authMiddleware.js';
 import upload from '../middleware/uploadMiddleware.js';
@@ -43,5 +50,13 @@ router.post('/:id/time-logs', protect, addTaskTimeLog);
 router.get('/:id/kpi-impact', protect, getTaskKpiImpact);
 router.get('/:id/ai-suggestions', protect, getTaskAiSuggestions);
 router.post('/:id/attachments', protect, upload.single('file'), addTaskAttachment);
+
+// Multi-linking routes
+router.get('/:id/projects', protect, getTaskProjects);
+router.post('/:id/projects/:projectId', protect, linkTaskToProject);
+router.delete('/:id/projects/:projectId', protect, unlinkTaskFromProject);
+router.get('/:id/documents', protect, getTaskDocuments);
+router.post('/:id/documents/:documentId', protect, linkDocumentToTask);
+router.delete('/:id/documents/:documentId', protect, unlinkDocumentFromTask);
 
 export default router;

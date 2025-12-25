@@ -1,44 +1,63 @@
 import Project from '../models/projectModel.js';
 import Task from '../models/taskModel.js';
+import User from '../models/userModel.js';
+import Goal from '../models/goalModel.js';
 
 // @desc    Get KPI Dashboard Data
 // @route   GET /kpi/dashboard
 // @access  Private
 const getKpiDashboard = async (req, res) => {
-    // Calculate overall KPIs across all projects
+    const { projectId } = req.query;
+
+    const projectFilter = projectId ? { project: projectId } : {};
+
     const totalProjects = await Project.countDocuments();
     const completedProjects = await Project.countDocuments({ status: 'Completed' });
     const projectSuccessRate = totalProjects > 0
         ? Math.round((completedProjects / totalProjects) * 100)
         : 0;
 
-    const totalTasks = await Task.countDocuments();
-    const completedTasks = await Task.countDocuments({ status: 'Done' });
+    const totalTasks = await Task.countDocuments(projectFilter);
+    const completedTasks = await Task.countDocuments({ ...projectFilter, status: 'Done' });
 
-    // Calculate average completion time (mock for now)
-    const avgCompletionTime = 14; // days
+    const avgCompletionTime = 14; // days (mock)
 
-    // Active issues (tasks that are blocked or overdue)
     const today = new Date();
     const activeIssues = await Task.countDocuments({
+        ...projectFilter,
         $or: [
             { status: 'Blocked' },
             { dueDate: { $lt: today }, status: { $ne: 'Done' } }
         ]
     });
 
+    // Calculate budget totals
+    const budgetAgg = await Project.aggregate([
+        { $group: { _id: null, totalBudget: { $sum: '$budget' }, totalUsed: { $sum: '$budgetUsed' } } }
+    ]);
+    const budget = budgetAgg[0] || { totalBudget: 0, totalUsed: 0 };
+
     res.json({
         revenue: {
-            total: 2450000,
+            total: budget.totalBudget,
+            used: budget.totalUsed,
             trend: 12.5,
             currency: '₺'
         },
         projectSuccessRate,
         avgCompletionTime,
         activeIssues,
+        totalProjects,
+        completedProjects,
+        riskProjects: await Project.countDocuments({ status: 'At Risk' }),
         taskCompletionRate: totalTasks > 0
             ? Math.round((completedTasks / totalTasks) * 100)
             : 0,
+        totalTasks,
+        completedTasks,
+        avgProgress: Math.round((await Project.aggregate([
+            { $group: { _id: null, avg: { $avg: '$progress' } } }
+        ]))[0]?.avg || 0)
     });
 };
 
@@ -46,7 +65,7 @@ const getKpiDashboard = async (req, res) => {
 // @route   GET /kpi/revenue
 // @access  Private
 const getRevenueData = async (req, res) => {
-    const { period } = req.query; // 'ytd', 'month', 'quarter'
+    const { period, projectId } = req.query;
 
     // Mock data for revenue chart
     const data = [
@@ -77,9 +96,18 @@ const getProjectPerformance = async (req, res) => {
 
     const data = projects.map(p => ({
         name: p.title.substring(0, 15),
-        onTime: p.progress,
-        budget: p.budget > 0 ? Math.round((p.budgetUsed / p.budget) * 100) : 0,
+        ilerleme: p.progress,
+        bütçe: p.budget > 0 ? Math.round((p.budgetUsed / p.budget) * 100) : 0,
+        görev: 0, // will be calculated
     }));
+
+    // Calculate task counts per project
+    for (const item of data) {
+        const project = projects.find(p => p.title.substring(0, 15) === item.name);
+        if (project) {
+            item.görev = await Task.countDocuments({ project: project._id, status: 'Done' });
+        }
+    }
 
     res.json(data);
 };
@@ -118,13 +146,11 @@ const getCompletionStats = async (req, res) => {
 const getActiveIssues = async (req, res) => {
     const today = new Date();
 
-    // Blocked tasks
     const blockedTasks = await Task.find({ status: 'Blocked' })
         .populate('project', 'title')
         .populate('assignee', 'name')
         .limit(10);
 
-    // Overdue tasks
     const overdueTasks = await Task.find({
         dueDate: { $lt: today },
         status: { $nin: ['Done', 'Blocked'] }
@@ -137,8 +163,200 @@ const getActiveIssues = async (req, res) => {
         total: blockedTasks.length + overdueTasks.length,
         blocked: blockedTasks,
         overdue: overdueTasks,
-        thisWeek: Math.floor(Math.random() * 5) + 1, // Mock
+        thisWeek: Math.floor(Math.random() * 5) + 1,
     });
+};
+
+// ================== TEAM PERFORMANCE ==================
+
+// @desc    Get Team Performance Rankings
+// @route   GET /kpi/team-performance
+// @access  Private
+const getTeamPerformance = async (req, res) => {
+    const { projectId, period } = req.query;
+
+    // Get all users with their task stats
+    const users = await User.find({ role: { $ne: 'Admin' } })
+        .select('name role avatar xp level')
+        .limit(20);
+
+    const performance = [];
+
+    for (const user of users) {
+        const filter = { assignee: user._id };
+        if (projectId) filter.project = projectId;
+
+        const completedTasks = await Task.countDocuments({ ...filter, status: 'Done' });
+        const totalTasks = await Task.countDocuments(filter);
+
+        // Calculate logged hours
+        const hoursAgg = await Task.aggregate([
+            { $match: { assignee: user._id } },
+            { $group: { _id: null, total: { $sum: '$loggedHours' } } }
+        ]);
+        const totalHours = hoursAgg[0]?.total || 0;
+
+        performance.push({
+            userId: user._id,
+            name: user.name,
+            role: user.role,
+            avatar: user.avatar,
+            completedTasks,
+            totalTasks,
+            totalHours,
+            efficiency: totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0,
+            score: user.xp || 0
+        });
+    }
+
+    // Sort by score (XP)
+    performance.sort((a, b) => b.score - a.score);
+
+    res.json(performance);
+};
+
+// ================== GOALS CRUD ==================
+
+// @desc    Get KPI Goals
+// @route   GET /kpi/goals
+// @access  Private
+const getGoals = async (req, res) => {
+    const { projectId, category, status } = req.query;
+
+    const filter = {};
+    if (projectId) filter.project = projectId;
+    if (category) filter.category = category;
+    if (status) filter.status = status;
+
+    const goals = await Goal.find(filter)
+        .populate('project', 'title color')
+        .populate('createdBy', 'name')
+        .sort({ createdAt: -1 });
+
+    res.json(goals);
+};
+
+// @desc    Create KPI Goal
+// @route   POST /kpi/goals
+// @access  Private
+const createGoal = async (req, res) => {
+    const { name, description, target, current, unit, category, deadline, status, projectId } = req.body;
+
+    const goal = await Goal.create({
+        name,
+        description,
+        target,
+        current: current || 0,
+        unit,
+        category,
+        deadline,
+        status: status || 'on-track',
+        project: projectId,
+        createdBy: req.user._id,
+        isCustom: true
+    });
+
+    await goal.populate('project', 'title color');
+
+    res.status(201).json(goal);
+};
+
+// @desc    Update KPI Goal
+// @route   PATCH /kpi/goals/:id
+// @access  Private
+const updateGoal = async (req, res) => {
+    const goal = await Goal.findById(req.params.id);
+
+    if (!goal) {
+        res.status(404);
+        throw new Error('Goal not found');
+    }
+
+    Object.assign(goal, req.body);
+
+    // Auto-update status based on progress
+    if (goal.target > 0) {
+        const progress = (goal.current / goal.target) * 100;
+        if (progress >= 100) {
+            goal.status = 'completed';
+        } else if (progress < 50 && goal.deadline && new Date(goal.deadline) < new Date()) {
+            goal.status = 'behind';
+        }
+    }
+
+    await goal.save();
+
+    res.json(goal);
+};
+
+// @desc    Delete KPI Goal
+// @route   DELETE /kpi/goals/:id
+// @access  Private
+const deleteGoal = async (req, res) => {
+    const goal = await Goal.findById(req.params.id);
+
+    if (!goal) {
+        res.status(404);
+        throw new Error('Goal not found');
+    }
+
+    // Only allow deleting custom goals
+    if (!goal.isCustom) {
+        res.status(403);
+        throw new Error('Cannot delete system goals');
+    }
+
+    await goal.deleteOne();
+
+    res.json({ message: 'Goal deleted' });
+};
+
+// @desc    Get single KPI by ID
+// @route   GET /kpis/:id
+// @access  Private
+const getKpiById = async (req, res) => {
+    const goal = await Goal.findById(req.params.id)
+        .populate('project', 'title color')
+        .populate('createdBy', 'name');
+
+    if (!goal) {
+        res.status(404);
+        throw new Error('KPI not found');
+    }
+
+    res.json(goal);
+};
+
+// @desc    Record KPI value
+// @route   POST /kpis/:id/record
+// @access  Private
+const recordKpiValue = async (req, res) => {
+    const { value } = req.body;
+    const goal = await Goal.findById(req.params.id);
+
+    if (!goal) {
+        res.status(404);
+        throw new Error('KPI not found');
+    }
+
+    goal.current = value;
+    await goal.save();
+
+    res.json(goal);
+};
+
+// @desc    Get KPI history
+// @route   GET /kpis/:id/history
+// @access  Private
+const getKpiHistory = async (req, res) => {
+    // Mock history data
+    res.json([
+        { date: '2024-01-01', value: 10 },
+        { date: '2024-02-01', value: 25 },
+        { date: '2024-03-01', value: 40 },
+        { date: '2024-04-01', value: 55 },
+        { date: '2024-05-01', value: 70 },
+    ]);
 };
 
 export {
@@ -147,4 +365,12 @@ export {
     getProjectPerformance,
     getCompletionStats,
     getActiveIssues,
+    getTeamPerformance,
+    getGoals,
+    createGoal,
+    updateGoal,
+    deleteGoal,
+    getKpiById,
+    recordKpiValue,
+    getKpiHistory,
 };
