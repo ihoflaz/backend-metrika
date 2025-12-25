@@ -10,9 +10,8 @@ const authUser = async (req, res) => {
     const user = await User.findOne({ email });
 
     if (user && (await user.matchPassword(password))) {
-        // Update status to online
-        user.status = 'online';
-        await user.save();
+        // Update status to online using findByIdAndUpdate to avoid triggering save hooks
+        await User.findByIdAndUpdate(user._id, { status: 'online' });
 
         res.json({
             _id: user._id,
@@ -80,7 +79,6 @@ const getUserProfile = async (req, res) => {
             level: user.level,
             xp: user.xp,
             xpToNextLevel: user.xpToNextLevel,
-            // Add other gamification stats here
         });
     } else {
         res.status(404);
@@ -102,8 +100,8 @@ const updateUserProfile = async (req, res) => {
         }
         user.avatar = req.body.avatar || user.avatar;
         user.bio = req.body.bio || user.bio;
-        user.title = req.body.title || user.title; // Add title if needed in model
-        user.phone = req.body.phone || user.phone; // Add phone if needed in model
+        user.title = req.body.title || user.title;
+        user.phone = req.body.phone || user.phone;
 
         const updatedUser = await user.save();
 
