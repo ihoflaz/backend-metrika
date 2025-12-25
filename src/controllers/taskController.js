@@ -37,6 +37,9 @@ const getTasks = async (req, res) => {
         .sort({ order: 1, createdAt: -1 })
         .populate('assignee', 'name avatar')
         .populate('project', 'title color')
+        .populate('projects', 'title color')
+        .populate('documents', 'name type size path')
+        .populate('sprint', 'name status')
         .limit(pageSize)
         .skip(pageSize * (page - 1));
 
@@ -48,8 +51,11 @@ const getTasks = async (req, res) => {
 // @access  Private
 const getTaskById = async (req, res) => {
     const task = await Task.findById(req.params.id)
-        .populate('assignee', 'name avatar')
-        .populate('project', 'title color');
+        .populate('assignee', 'name avatar email')
+        .populate('project', 'title color status')
+        .populate('projects', 'title color status')
+        .populate('documents', 'name type size path')
+        .populate('sprint', 'name status startDate endDate');
 
     if (task) {
         res.json(task);

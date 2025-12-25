@@ -184,6 +184,10 @@ const getProjectTasks = async (req, res) => {
     const { grouped } = req.query;
     const tasks = await Task.find({ project: req.params.id })
         .populate('assignee', 'name avatar')
+        .populate('project', 'title color')
+        .populate('projects', 'title color')
+        .populate('documents', 'name type size path')
+        .populate('sprint', 'name status')
         .sort({ order: 1 });
 
     if (grouped === 'status') {

@@ -37,7 +37,8 @@ Password: 123456
 14. [Settings](#14-settings)
 15. [Help](#15-help)
 16. [Search](#16-search)
-17. [Database Models](#17-database-models)
+17. [Response Population Details](#17-response-population-details)
+18. [Database Models](#18-database-models)
 
 ---
 
@@ -313,7 +314,115 @@ Kullanıcı girişi.
 
 ---
 
-## 17. Database Models
+## 17. Response Population Details
+
+API response'larında ilişkili veriler otomatik olarak populate edilir:
+
+### Tasks Response
+
+```json
+{
+  "_id": "...",
+  "title": "API Entegrasyonu Tamamla",
+  "status": "In Progress",
+  "priority": "High",
+  "project": {
+    "_id": "...",
+    "title": "Metrika Backend",
+    "color": "blue",
+    "status": "Active"
+  },
+  "projects": [
+    { "_id": "...", "title": "Frontend App", "color": "green", "status": "Active" }
+  ],
+  "assignee": {
+    "_id": "...",
+    "name": "Hulusi",
+    "avatar": 5,
+    "email": "admin@metrika.com"
+  },
+  "documents": [
+    { "_id": "...", "name": "requirements.pdf", "type": "PDF", "size": "2.4 MB", "path": "https://..." }
+  ],
+  "sprint": {
+    "_id": "...",
+    "name": "Sprint 1",
+    "status": "Active",
+    "startDate": "...",
+    "endDate": "..."
+  },
+  "attachments": [
+    { "name": "mockup.png", "url": "https://...", "mimeType": "image/png", "size": 156000 }
+  ]
+}
+```
+
+### Projects Response
+
+```json
+{
+  "_id": "...",
+  "title": "Metrika Backend",
+  "status": "Active",
+  "methodology": "Scrum",
+  "manager": {
+    "_id": "...",
+    "name": "Hulusi",
+    "avatar": 1,
+    "email": "admin@metrika.com",
+    "role": "Admin"
+  },
+  "members": [
+    {
+      "_id": "...",
+      "name": "Ahmet Yılmaz",
+      "avatar": 5,
+      "email": "ahmet@metrika.com",
+      "role": "Developer",
+      "department": "Engineering",
+      "status": "online"
+    }
+  ]
+}
+```
+
+### Documents Response
+
+```json
+{
+  "_id": "...",
+  "name": "requirements.pdf",
+  "type": "PDF",
+  "size": "2.4 MB",
+  "path": "https://res.cloudinary.com/...",
+  "uploader": {
+    "_id": "...",
+    "name": "Hulusi",
+    "avatar": 1
+  },
+  "project": {
+    "_id": "...",
+    "title": "Metrika Backend"
+  }
+}
+```
+
+### Populate Summary
+
+| Endpoint | Populated Fields |
+|----------|------------------|
+| `GET /tasks` | `assignee`, `project`, `projects[]`, `documents[]`, `sprint` |
+| `GET /tasks/:id` | `assignee`, `project`, `projects[]`, `documents[]`, `sprint` |
+| `GET /projects/:id/tasks` | `assignee`, `project`, `projects[]`, `documents[]`, `sprint` |
+| `GET /projects` | `manager`, `members[]` |
+| `GET /projects/:id` | `manager`, `members[]` (with email, role, department, status) |
+| `GET /projects/:id/members` | `manager`, `members[]` |
+| `GET /documents` | `uploader`, `project` |
+| `GET /documents/:id` | `uploader`, `project` |
+
+---
+
+## 18. Database Models
 
 ### User
 ```javascript
@@ -596,9 +705,10 @@ Kullanıcı girişi.
 ---
 
 **Last Updated:** December 25, 2024  
-**Version:** 2.2
+**Version:** 2.3
 
 ### Changelog
+- **v2.3**: Added Response Population Details section with example responses
 - **v2.2**: Added complete Database Models section (13 models)
 - **v2.1**: Task multi-project/document linking, KPI Goals CRUD
 - **v2.0**: All new endpoints
